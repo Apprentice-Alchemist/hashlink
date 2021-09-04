@@ -90,7 +90,8 @@ static struct
 
 static void sigprof_handler(int sig, siginfo_t *info, void *ucontext)
 {
-	shared_context.context = *(ucontext_t *)ucontext;
+	ucontext_t *ctx = ucontext;
+	shared_context.context = *ctx;
 	sem_post(&shared_context.msg2);
 	sem_wait(&shared_context.msg3);
 	sem_post(&shared_context.msg4);
@@ -184,15 +185,17 @@ static void read_thread_data( thread_handle *t ) {
 		return;
 	}
 
-	int size = (int)((unsigned char*)t->inf->stack_top - (unsigned char*)stack);
-	if( size > MAX_STACK_SIZE-32 ) size = MAX_STACK_SIZE-32;
-	memcpy(data.tmpMemory + 2,stack,size);
-	pause_thread(t, false);
-	data.tmpMemory[0] = eip;
-	data.tmpMemory[1] = stack;
-	size += sizeof(void*) * 2;
+	// int size = (int)((unsigned char*)t->inf->stack_top - (unsigned char*)stack);
+	// if( size > MAX_STACK_SIZE-32 ) size = MAX_STACK_SIZE-32;
+	// memcpy(data.tmpMemory + 2,stack,size);
+	// pause_thread(t, false);
+	// data.tmpMemory[0] = eip;
+	// data.tmpMemory[1] = stack;
+	// size += sizeof(void*) * 2;
 
-	int count = hl_module_capture_stack_range((char*)data.tmpMemory+size, (void**)data.tmpMemory, data.stackOut, MAX_STACK_COUNT);
+	int count = hl_module_capture_stack_range(t->inf->stack_top,stack,data.stackOut,MAX_STACK_COUNT);
+	pause_thread(t, false);
+	// int count = hl_module_capture_stack_range((char*)data.tmpMemory+size, (void**)data.tmpMemory, data.stackOut, MAX_STACK_COUNT);
 	int eventId = count | 0x80000000;
 	double time = hl_sys_time();
 	record_data(&time,sizeof(double));
