@@ -23,9 +23,9 @@
 #include <hlmodule.h>
 
 #ifdef HL_LINUX
-#include <sys/syscall.h>
-#include <sys/signal.h>
+#include <signal.h>
 #include <semaphore.h>
+#include <unistd.h>
 #endif
 
 #define MAX_STACK_SIZE (8 << 20)
@@ -112,11 +112,11 @@ static void *get_thread_stackptr( thread_handle *t, void **eip ) {
 #	endif
 #elif defined(HL_LINUX)
 #	ifdef HL_64
-	*eip = shared_context.context.uc_mcontext.gregs[REG_RIP];
-	return shared_context.context.uc_mcontext.gregs[REG_RSP];
+	*eip = (void*)shared_context.context.uc_mcontext.gregs[REG_RIP];
+	return (void*)shared_context.context.uc_mcontext.gregs[REG_RSP];
 #	else
-	*eip = shared_context.context.uc_mcontext.gregs[REG_EIP];
-	return shared_context.context.uc_mcontext.gregs[REG_ESP];
+	*eip = (void*)shared_context.context.uc_mcontext.gregs[REG_EIP];
+	return (void*)shared_context.context.uc_mcontext.gregs[REG_ESP];
 #	endif
 #else
 	return NULL;
@@ -145,7 +145,7 @@ static bool pause_thread( thread_handle *t, bool b ) {
 	}
 #elif defined(HL_LINUX)
 	if( b ) {
-		syscall(SYS_tgkill, syscall(SYS_getpid), t->tid, SIGPROF);
+		tgkill(getpid(), t->tid, SIGPROF);
 		return sem_wait(&shared_context.msg2) == 0;
 	} else {
 		sem_post(&shared_context.msg3);
