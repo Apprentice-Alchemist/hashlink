@@ -84,6 +84,16 @@
 #	define HL_64
 #endif
 
+#if defined(__aarch64__) || defined(__aarch64) || defined(__arm64) ||          \
+    defined(__arm64__) || defined(_M_ARM64)
+#	define HL_AARCH64
+#endif
+
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) ||           \
+    defined(_M_IX86)
+#	define HL_X86_64
+#endif
+
 #if defined(__GNUC__)
 #	define HL_GCC
 #endif
@@ -154,7 +164,7 @@
 #	define EXPORT __declspec( dllexport )
 #	define IMPORT __declspec( dllimport )
 #else
-#	define EXPORT
+#	define EXPORT __attribute__ ((visibility ("default")))
 #	define IMPORT extern
 #endif
 

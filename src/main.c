@@ -228,9 +228,19 @@ int main(int argc, pchar *argv[]) {
 	cl.t = ctx.code->functions[ctx.m->functions_indexes[ctx.m->code->entrypoint]].type;
 	cl.fun = ctx.m->functions_ptrs[ctx.m->code->entrypoint];
 	cl.hasValue = 0;
-	setup_handler();
+	// setup_handler();
 	hl_profile_setup(profile_count);
-	ctx.ret = hl_dyn_call_safe(&cl,NULL,0,&isExc);
+
+	hl_trap_ctx trap;
+	vdynamic *exc;
+	isExc = false;
+	hl_trap(trap, exc, on_exception);
+	((void(*)())cl.fun)();
+	goto not_exc;
+on_exception:
+	isExc = true;
+	ctx.ret = exc; //= hl_dyn_call_safe(&cl,NULL,0,&isExc);
+not_exc:
 	hl_profile_end();
 	if( isExc ) {
 		varray *a = hl_exception_stack();
