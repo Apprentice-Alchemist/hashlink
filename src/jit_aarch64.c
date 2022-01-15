@@ -9,7 +9,10 @@
 // Android
 //      https://developer.android.com/ndk/guides/abis#arm64-v8a
 
-#include "hl.h"
+#ifndef HL_AARCH64
+#error "Do not include jit_aarch64.c directly, include jit.c instead."
+#endif
+
 #include <assert.h>
 #include <hlmodule.h>
 #include <math.h>

@@ -25,8 +25,8 @@
 #include <math.h>
 #include <hlmodule.h>
 
-#if defined(__arm__) || defined(__aarch64__)
-#	error "JIT does not support ARM processors, only x86 and x86-64 are supported, please use HashLink/C native compilation instead"
+#ifndef HL_X86_64
+#	error "Do not include jit_x86_64.c directly, include jit.c instead."
 #endif
 
 #ifdef HL_DEBUG
@@ -3049,7 +3049,7 @@ int hl_jit_function( jit_ctx *ctx, hl_module *m, hl_function *f ) {
 				op32(ctx, STMXCSR, pmem(&p, Esp, -4), UNUSED);
 				op32(ctx, MOV, tmp, &p);
 				op32(ctx, OR, tmp, pconst(&p, 0x6000)); // set round towards 0
-				op32(ctx, MOV, pmem(&p, Esp, -4), tmp);
+				op32(ctx, MOV, pmem(&p, Esp, -8), tmp);
 				op32(ctx, LDMXCSR, &p, UNUSED);
 				op32(ctx, CVTSS2SI, w, r);
 				op32(ctx, LDMXCSR, pmem(&p, Esp, -4), UNUSED);

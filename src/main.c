@@ -254,7 +254,8 @@ not_exc:
 	}
 	hl_module_free(ctx.m);
 	hl_free(&ctx.code->alloc);
-	hl_unregister_thread();
+	// do not call hl_unregister_thread() or hl_global_free will display error 
+	// on global_lock if there are threads that are still running (such as debugger)
 	hl_global_free();
 	return 0;
 }
