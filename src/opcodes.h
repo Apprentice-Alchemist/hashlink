@@ -142,6 +142,16 @@ OP_BEGIN
 	OP(ORefData,2)
 	OP(ORefOffset,3)
 	OP(ONop,0)
+
+	OP(OAtomicAdd, 3)
+	OP(OAtomicSub, 3)
+	OP(OAtomicAnd, 3)
+	OP(OAtomicOr, 3)
+	OP(OAtomicXor, 3)
+	OP(OAtomicCompareExchange, 4)
+	OP(OAtomicExchange, 3)
+	OP(OAtomicLoad, 2)
+	OP(OAtomicStore, 3)
 	// --
 	OP(OLast,0)
 OP_END

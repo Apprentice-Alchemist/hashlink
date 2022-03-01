@@ -115,6 +115,10 @@ typedef enum {
 	MOV16,
 	CMP16,
 	TEST16,
+	// XCHG operations
+	XCHG,
+	CMPXCHG,
+	XADD,
 	// --
 	_CPU_LAST
 } CpuOp;
@@ -484,6 +488,10 @@ static opform OP_FORMS[_CPU_LAST] = {
 	{ "MOV16", OP16(0x8B), OP16(0x89), OP16(0xB8) },
 	{ "CMP16", OP16(0x3B), OP16(0x39) },
 	{ "TEST16", OP16(0x85) },
+	// XCHG operations
+	{ "XCHG", 0, 0x87 },
+	{ "CMPXCHG", 0, LONG_OP(0x0FB1) },
+	{ "XADD", 0, LONG_OP(0x0FC1) }
 };
 
 #ifdef HL_64
@@ -4052,6 +4060,118 @@ int hl_jit_function( jit_ctx *ctx, hl_module *m, hl_function *f ) {
 			break;
 		case ONop:
 			break;
+                case OAtomicAdd: {
+                  scratch(ra->current);
+                  preg *tmp = alloc_cpu(ctx, rb, true);
+                  preg *pa = pmem(&p, alloc_cpu(ctx, ra, true)->id, 0);
+                  B(0xF0); // LOCK prefix
+                  op(ctx, XADD, pa, tmp, false);
+                  store(ctx, dst, tmp, false);
+                } break;
+                                  case OAtomicSub: {
+                                    scratch(ra->current);
+                                    preg *tmp = alloc_cpu(ctx, rb, true);
+									preg *tmp2 = alloc_reg(ctx, RCPU);
+                                    op32(ctx, XOR, tmp2, tmp2);
+                                    op32(ctx, SUB, tmp2, tmp);
+                                    preg *pa =
+                                        pmem(&p, alloc_cpu(ctx, ra, true)->id,
+                                             0);
+											 B(0xF0); // LOCK prefix
+                                    op(ctx, XADD,
+                                       pa,
+                                       tmp2, false);
+                                    store(ctx, dst, tmp2, false);
+                                  } break;
+                case OAtomicAnd:
+		{
+                  scratch(ra->current);
+                  scratch(PEAX);
+				  RLOCK(PEAX);
+                  copy(ctx, PEAX, pmem(&p, alloc_cpu(ctx, ra, true)->id, 0), 4);
+                  int jmpPos = BUF_POS();
+                  preg *tmp = alloc_reg(ctx, RCPU);
+                  copy(ctx, tmp, PEAX, 4);
+                  op(ctx, AND, tmp, fetch(rb), false);
+                  preg *pa = pmem(&p, alloc_cpu(ctx, ra, true)->id, 0);
+                  B(0xF0); // LOCK prefix
+                  op(ctx, CMPXCHG, pa,
+                     tmp, false);
+                  int jump;
+                  XJump(JNeq, jump);
+                  patch_jump_to(ctx, jump, jmpPos);
+                  store(ctx, dst, PEAX, false);
+        }
+		break;
+        case OAtomicOr: {
+          scratch(ra->current);
+          scratch(PEAX);
+          RLOCK(PEAX);
+          copy(ctx, PEAX, pmem(&p, alloc_cpu(ctx, ra, true)->id, 0), 4);
+          int jmpPos = BUF_POS();
+          preg *tmp = alloc_reg(ctx, RCPU);
+          copy(ctx, tmp, PEAX, 4);
+          op(ctx, OR, tmp, fetch(rb), false);
+          preg *pa = pmem(&p, alloc_cpu(ctx, ra, true)->id, 0);
+          B(0xF0); // LOCK prefix
+          op(ctx, CMPXCHG, pa, tmp,
+             false);
+          int jump;
+          XJump(JNeq, jump);
+          patch_jump_to(ctx, jump, jmpPos);
+          store(ctx, dst, PEAX, false);
+        } break;
+        case OAtomicXor: {
+          scratch(ra->current);
+          scratch(PEAX);
+          RLOCK(PEAX);
+          copy(ctx, PEAX, pmem(&p, alloc_cpu(ctx, ra, true)->id, 0), 4);
+          int jmpPos = BUF_POS();
+          preg *tmp = alloc_reg(ctx, RCPU);
+          copy(ctx, tmp, PEAX, 4);
+          op(ctx, XOR, tmp, fetch(rb), false);
+		                                      preg *pa =
+                                        pmem(&p, alloc_cpu(ctx, ra, true)->id,
+                                             0);
+          B(0xF0); // LOCK prefix
+          op(ctx, CMPXCHG, pa, tmp,
+             false);
+          int jump;
+          XJump(JNeq, jump);
+          patch_jump_to(ctx, jump, jmpPos);
+          store(ctx, dst, PEAX, false);
+        } break;
+        case OAtomicCompareExchange:{
+			scratch(ra->current);
+			scratch(PEAX);
+			RLOCK(PEAX);
+			copy_from(ctx, PEAX, rb);
+            preg *replacement = alloc_cpu(ctx, R((int)(int_val)o->extra), true);
+            preg *pa = pmem(&p, alloc_cpu(ctx, ra, true)->id, 0);
+            B(0xF0); // LOCK prefix
+            op(ctx, CMPXCHG, pa,
+               replacement, false);
+            store(ctx, dst, PEAX, false);
+						}
+			break;
+		case OAtomicExchange:{
+			scratch(ra->current);
+			preg* tmp = alloc_cpu(ctx, rb, true);
+                        preg *pa = pmem(&p, alloc_cpu(ctx, ra, true)->id, 0);
+                        op(ctx, XCHG, pa,
+                           tmp, false);
+                        store(ctx, dst, tmp, false);}
+                        break;
+        case OAtomicLoad:{
+			copy_to(ctx, dst, pmem(&p, alloc_cpu(ctx, ra, true)->id, 0));}
+			break;
+		case OAtomicStore: 
+			{
+				copy_to(ctx, dst, fetch(rb));
+				preg *tmp = alloc_cpu(ctx, rb, true);
+				op(ctx, XCHG, pmem(&p, alloc_cpu(ctx, ra, true)->id, 0), tmp, false);
+			}
+            break;
 		default:
 			jit_error(hl_op_name(o->op));
 			break;

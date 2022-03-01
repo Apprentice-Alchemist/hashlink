@@ -205,6 +205,12 @@ typedef unsigned long long uint64;
 #define	HL_API IMPORT
 #endif
 
+#if defined(HL_VCC)
+#define HL_INLINE __inline
+#else
+#define HL_INLINE inline
+#endif
+
 // -------------- UNICODE -----------------------------------
 
 #if defined(HL_WIN) && !defined(HL_LLVM)
@@ -712,6 +718,110 @@ HL_API hl_tls *hl_tls_alloc( bool gc_value );
 HL_API void hl_tls_set( hl_tls *l, void *value );
 HL_API void *hl_tls_get( hl_tls *l );
 HL_API void hl_tls_free( hl_tls *l );
+
+// Assumptions made:
+//    Everyone uses GCC, Clang or MSVC
+//    People are not using 8 year old versions of GCC.
+
+#if defined(HL_GCC) || defined(HL_CLANG)
+#define HL_GCC_ATOMICS
+#elif defined(HL_VCC)
+#define HL_VCC_ATOMICS
+#include <winnt.h>
+#else // Nearly everyone uses GCC, Clang or MSVC, right?
+#error                                                                         \
+    "Neither GCC, clang or MSVC is being used. Please contribute the relevant atomic instrinsics for your compiler."
+#endif
+
+HL_INLINE int hl_atomic_add(volatile int *a, int b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_add(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return InterlockedExchangeAdd((LONG volatile*)a, b);
+#endif
+}
+
+HL_INLINE int hl_atomic_sub(volatile int *a, int b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_sub(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return InterlockedExchangeAdd((LONG volatile*)a, -b);
+#endif
+}
+
+HL_INLINE int hl_atomic_and(volatile int *a, int b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_and(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return InterlockedAnd((LONG volatile*)a, b);
+#endif
+}
+
+HL_INLINE int hl_atomic_or(volatile int *a, int b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_or(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return InterlockedOr((LONG volatile*)a, b);
+#endif
+}
+
+HL_INLINE int hl_atomic_xor(volatile int *a, int b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_xor(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return InterlockedXor((LONG volatile*)a, b);
+#endif
+}
+
+HL_INLINE int hl_atomic_compare_exchange(volatile int *a, int expected,
+                                       int replacement) {
+#if defined(HL_GCC_ATOMICS)
+  int _expected = expected;
+  __atomic_compare_exchange(a, &_expected, &replacement, false,
+                            __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+  return _expected;
+#elif defined(HL_VCC_ATOMICS)
+  return InterlockedCompareExchange((LONG volatile*)a, replacement, expected);
+#endif
+}
+
+HL_INLINE int hl_atomic_exchange(volatile int *a, int replacement) {
+#if defined(HL_GCC_ATOMICS)
+  int ret = 0;
+  __atomic_exchange(a, &replacement, &ret, __ATOMIC_SEQ_CST);
+  return ret;
+#elif defined(HL_VCC_ATOMICS)
+  return InterlockedExchange((LONG volatile*)a, replacement);
+#endif
+}
+
+HL_INLINE bool hl_atomic_is_lock_free(int size) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_is_lock_free(size, 0);
+#else
+  return true; // randomly assume that atomic operations on int are lock free
+#endif
+}
+
+HL_INLINE int hl_atomic_load(volatile int *a) {
+#if defined(HL_GCC_ATOMICS)
+  int ret = 0;
+  __atomic_load(a, &ret, __ATOMIC_SEQ_CST);
+  return ret;
+#elif defined(HL_VCC_ATOMICS)
+  return InterlockedXor((LONG volatile*)a, 0);
+#endif
+}
+
+HL_INLINE int hl_atomic_store(volatile int *a, int value) {
+#if defined(HL_GCC_ATOMICS)
+  __atomic_store(a, &value, __ATOMIC_SEQ_CST);
+  return value;
+#elif defined(HL_VCC_ATOMICS)
+  InterlockedExchange((LONG volatile*)a, value);
+  return value;
+#endif
+}
 
 // ----------------------- ALLOC --------------------------------------------------
 
