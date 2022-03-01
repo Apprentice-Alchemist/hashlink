@@ -727,98 +727,357 @@ HL_API void hl_tls_free( hl_tls *l );
 #define HL_GCC_ATOMICS
 #elif defined(HL_VCC)
 #define HL_VCC_ATOMICS
-#include <winnt.h>
+#include <intrin.h>
 #else // Nearly everyone uses GCC, Clang or MSVC, right?
 #error                                                                         \
     "Neither GCC, clang or MSVC is being used. Please contribute the relevant atomic instrinsics for your compiler."
 #endif
 
-HL_INLINE int hl_atomic_add(volatile int *a, int b) {
+HL_INLINE unsigned char hl_atomic_add8(unsigned char *a, unsigned char b) {
 #if defined(HL_GCC_ATOMICS)
   return __atomic_fetch_add(a, b, __ATOMIC_SEQ_CST);
 #elif defined(HL_VCC_ATOMICS)
-  return InterlockedExchangeAdd((LONG volatile*)a, b);
+  return _InterlockedExchangeAdd8((char volatile *)a, b);
+#endif
+}
+HL_INLINE unsigned short hl_atomic_add16(unsigned short *a, unsigned short b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_add(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedExchangeAdd16((short volatile *)a, b);
+#endif
+}
+HL_INLINE int hl_atomic_add32(int *a, int b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_add(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedExchangeAdd((LONG volatile *)a, b);
+#endif
+}
+HL_INLINE int64 hl_atomic_add64(int64 *a, int64 b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_add(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedExchangeAdd64((__int64 volatile *)a, b);
 #endif
 }
 
-HL_INLINE int hl_atomic_sub(volatile int *a, int b) {
+HL_INLINE unsigned char hl_atomic_sub8(unsigned char *a, unsigned char b) {
 #if defined(HL_GCC_ATOMICS)
   return __atomic_fetch_sub(a, b, __ATOMIC_SEQ_CST);
 #elif defined(HL_VCC_ATOMICS)
-  return InterlockedExchangeAdd((LONG volatile*)a, -b);
+  return _InterlockedExchangeAdd8((char volatile *)a, -b);
+#endif
+}
+HL_INLINE unsigned short hl_atomic_sub16(unsigned short *a, unsigned short b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_sub(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedExchangeAdd16((short volatile *)a, -b);
+#endif
+}
+HL_INLINE int hl_atomic_sub32(int *a, int b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_sub(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedExchangeAdd((LONG volatile *)a, -b);
+#endif
+}
+HL_INLINE int64 hl_atomic_sub64(int64 *a, int64 b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_sub(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedExchangeAdd64((__int64 volatile *)a, -b);
 #endif
 }
 
-HL_INLINE int hl_atomic_and(volatile int *a, int b) {
+HL_INLINE unsigned char hl_atomic_and8(unsigned char *a, unsigned char b) {
 #if defined(HL_GCC_ATOMICS)
   return __atomic_fetch_and(a, b, __ATOMIC_SEQ_CST);
 #elif defined(HL_VCC_ATOMICS)
-  return InterlockedAnd((LONG volatile*)a, b);
+  return _InterlockedAnd8((char volatile *)a, b);
+#endif
+}
+HL_INLINE unsigned short hl_atomic_and16(unsigned short *a, unsigned short b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_and(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedAnd16((short volatile *)a, b);
+#endif
+}
+HL_INLINE int hl_atomic_and32(int *a, int b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_and(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedAnd((LONG volatile *)a, b);
+#endif
+}
+HL_INLINE int64 hl_atomic_and64(int64 *a, int64 b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_and(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedAnd64((__int64 volatile *)a, b);
 #endif
 }
 
-HL_INLINE int hl_atomic_or(volatile int *a, int b) {
+HL_INLINE unsigned char hl_atomic_or8(unsigned char *a, unsigned char b) {
 #if defined(HL_GCC_ATOMICS)
   return __atomic_fetch_or(a, b, __ATOMIC_SEQ_CST);
 #elif defined(HL_VCC_ATOMICS)
-  return InterlockedOr((LONG volatile*)a, b);
+  return _InterlockedOr8((char volatile *)a, b);
+#endif
+}
+HL_INLINE unsigned short hl_atomic_or16(unsigned short *a, unsigned short b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_or(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedOr16((short volatile *)a, b);
+#endif
+}
+HL_INLINE int hl_atomic_or32(int *a, int b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_or(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedOr((LONG volatile *)a, b);
+#endif
+}
+HL_INLINE int64 hl_atomic_or64(int64 *a, int64 b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_or(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedOr64((__int64 volatile *)a, b);
 #endif
 }
 
-HL_INLINE int hl_atomic_xor(volatile int *a, int b) {
+HL_INLINE unsigned char hl_atomic_xor8(unsigned char *a, unsigned char b) {
 #if defined(HL_GCC_ATOMICS)
   return __atomic_fetch_xor(a, b, __ATOMIC_SEQ_CST);
 #elif defined(HL_VCC_ATOMICS)
-  return InterlockedXor((LONG volatile*)a, b);
+  return _InterlockedXor8((char volatile *)a, b);
+#endif
+}
+HL_INLINE unsigned short hl_atomic_xor16(unsigned short *a, unsigned short b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_xor(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedXor16((short volatile *)a, b);
+#endif
+}
+HL_INLINE int hl_atomic_xor32(int *a, int b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_xor(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedXor((LONG volatile *)a, b);
+#endif
+}
+HL_INLINE int64 hl_atomic_xor64(int64 *a, int64 b) {
+#if defined(HL_GCC_ATOMICS)
+  return __atomic_fetch_xor(a, b, __ATOMIC_SEQ_CST);
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedXor64((__int64 volatile *)a, b);
 #endif
 }
 
-HL_INLINE int hl_atomic_compare_exchange(volatile int *a, int expected,
-                                       int replacement) {
+HL_INLINE unsigned char hl_atomic_compare_exchange8(unsigned char *a,
+                                                    unsigned char expected,
+                                                    unsigned char replacement) {
+#if defined(HL_GCC_ATOMICS)
+  unsigned char _expected = expected;
+  __atomic_compare_exchange(a, &_expected, &replacement, false,
+                            __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+  return _expected;
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedCompareExchange8((char volatile *)a, replacement,
+                                      expected);
+#endif
+}
+HL_INLINE unsigned short
+hl_atomic_compare_exchange16(unsigned short *a, unsigned short expected,
+                             unsigned short replacement) {
+#if defined(HL_GCC_ATOMICS)
+  unsigned short _expected = expected;
+  __atomic_compare_exchange(a, &_expected, &replacement, false,
+                            __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+  return _expected;
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedCompareExchange16((short volatile *)a,
+                                       replacement, expected);
+#endif
+}
+HL_INLINE int hl_atomic_compare_exchange32(int *a, int expected,
+                                           int replacement) {
 #if defined(HL_GCC_ATOMICS)
   int _expected = expected;
   __atomic_compare_exchange(a, &_expected, &replacement, false,
                             __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
   return _expected;
 #elif defined(HL_VCC_ATOMICS)
-  return InterlockedCompareExchange((LONG volatile*)a, replacement, expected);
+  return _InterlockedCompareExchange((LONG volatile *)a, replacement, expected);
+#endif
+}
+HL_INLINE int64 hl_atomic_compare_exchange64(int64 *a, int64 expected,
+                                             int64 replacement) {
+#if defined(HL_GCC_ATOMICS)
+  int64 _expected = expected;
+  __atomic_compare_exchange(a, &_expected, &replacement, false,
+                            __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+  return _expected;
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedCompareExchange64((__int64 volatile *)a, replacement,
+                                       expected);
+#endif
+}
+HL_INLINE void *hl_atomic_compare_exchange_ptr(void **a, void *expected,
+                                               void *replacement) {
+#if defined(HL_GCC_ATOMICS)
+  void* _expected = expected;
+  __atomic_compare_exchange(a, &_expected, &replacement, false,
+                            __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+  return _expected;
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedCompareExchangePointer((void *volatile *)a, replacement,
+                                            expected);
 #endif
 }
 
-HL_INLINE int hl_atomic_exchange(volatile int *a, int replacement) {
+HL_INLINE unsigned char hl_atomic_exchange8(unsigned char *a, unsigned char replacement) {
+#if defined(HL_GCC_ATOMICS)
+  unsigned char ret = 0;
+  __atomic_exchange(a, &replacement, &ret, __ATOMIC_SEQ_CST);
+  return ret;
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedExchange8((char volatile *)a, replacement);
+#endif
+}
+HL_INLINE unsigned short hl_atomic_exchange16(unsigned short *a, unsigned short replacement) {
+#if defined(HL_GCC_ATOMICS)
+  unsigned short ret = 0;
+  __atomic_exchange(a, &replacement, &ret, __ATOMIC_SEQ_CST);
+  return ret;
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedExchange16((short volatile *)a, replacement);
+#endif
+}
+HL_INLINE int hl_atomic_exchange32(int *a, int replacement) {
 #if defined(HL_GCC_ATOMICS)
   int ret = 0;
   __atomic_exchange(a, &replacement, &ret, __ATOMIC_SEQ_CST);
   return ret;
 #elif defined(HL_VCC_ATOMICS)
-  return InterlockedExchange((LONG volatile*)a, replacement);
+  return _InterlockedExchange((LONG volatile *)a, replacement);
 #endif
 }
-
-HL_INLINE bool hl_atomic_is_lock_free(int size) {
+HL_INLINE int64 hl_atomic_exchange64(int64 *a, int64 replacement) {
 #if defined(HL_GCC_ATOMICS)
-  return __atomic_is_lock_free(size, 0);
-#else
-  return true; // randomly assume that atomic operations on int are lock free
+  int64 ret = 0;
+  __atomic_exchange(a, &replacement, &ret, __ATOMIC_SEQ_CST);
+  return ret;
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedExchange64((__int64 volatile *)a, replacement);
+#endif
+}
+HL_INLINE void* hl_atomic_exchange_ptr(void* *a, void* replacement) {
+#if defined(HL_GCC_ATOMICS)
+  void* ret = 0;
+  __atomic_exchange(a, &replacement, &ret, __ATOMIC_SEQ_CST);
+  return ret;
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedExchangePointer((void* volatile *)a, replacement);
 #endif
 }
 
-HL_INLINE int hl_atomic_load(volatile int *a) {
+HL_INLINE unsigned char hl_atomic_load8(unsigned char *a) {
+#if defined(HL_GCC_ATOMICS)
+  unsigned char ret = 0;
+  __atomic_load(a, &ret, __ATOMIC_SEQ_CST);
+  return ret;
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedXor8((char volatile *)a, 0);
+#endif
+}
+HL_INLINE unsigned short hl_atomic_load16(unsigned short *a) {
+#if defined(HL_GCC_ATOMICS)
+  unsigned short ret = 0;
+  __atomic_load(a, &ret, __ATOMIC_SEQ_CST);
+  return ret;
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedXor16((short volatile *)a, 0);
+#endif
+}
+HL_INLINE int hl_atomic_load32(int *a) {
 #if defined(HL_GCC_ATOMICS)
   int ret = 0;
   __atomic_load(a, &ret, __ATOMIC_SEQ_CST);
   return ret;
 #elif defined(HL_VCC_ATOMICS)
-  return InterlockedXor((LONG volatile*)a, 0);
+  return _InterlockedXor((LONG volatile *)a, 0);
+#endif
+}
+HL_INLINE int64 hl_atomic_load64(int64 *a) {
+#if defined(HL_GCC_ATOMICS)
+  int64 ret = 0;
+  __atomic_load(a, &ret, __ATOMIC_SEQ_CST);
+  return ret;
+#elif defined(HL_VCC_ATOMICS)
+  return _InterlockedXor64((__int64 volatile *)a, 0);
+#endif
+}
+HL_INLINE void* hl_atomic_load_ptr(void* *a) {
+#if defined(HL_GCC_ATOMICS)
+  void* ret = 0;
+  __atomic_load(a, &ret, __ATOMIC_SEQ_CST);
+  return ret;
+#elif defined(HL_VCC_ATOMICS)
+#ifdef HL_64
+  return (void*)_InterlockedXor64((__int64 volatile *)a, 0);
+#else
+  return (void *)_InterlockedXor((LONG volatile *)a, 0);
+#endif
 #endif
 }
 
-HL_INLINE int hl_atomic_store(volatile int *a, int value) {
+HL_INLINE unsigned char hl_atomic_store8(unsigned char *a, unsigned char value) {
 #if defined(HL_GCC_ATOMICS)
   __atomic_store(a, &value, __ATOMIC_SEQ_CST);
   return value;
 #elif defined(HL_VCC_ATOMICS)
-  InterlockedExchange((LONG volatile*)a, value);
+  _InterlockedExchange8((char volatile *)a, value);
+  return value;
+#endif
+}
+HL_INLINE unsigned short hl_atomic_store16(unsigned short *a, unsigned short value) {
+#if defined(HL_GCC_ATOMICS)
+  __atomic_store(a, &value, __ATOMIC_SEQ_CST);
+  return value;
+#elif defined(HL_VCC_ATOMICS)
+  _InterlockedExchange16((short volatile *)a, value);
+  return value;
+#endif
+}
+HL_INLINE int hl_atomic_store32(int *a, int value) {
+#if defined(HL_GCC_ATOMICS)
+  __atomic_store(a, &value, __ATOMIC_SEQ_CST);
+  return value;
+#elif defined(HL_VCC_ATOMICS)
+  _InterlockedExchange((LONG volatile *)a, value);
+  return value;
+#endif
+}
+HL_INLINE int64 hl_atomic_store64(int64 *a, int64 value) {
+#if defined(HL_GCC_ATOMICS)
+  __atomic_store(a, &value, __ATOMIC_SEQ_CST);
+  return value;
+#elif defined(HL_VCC_ATOMICS)
+  _InterlockedExchange64((__int64 volatile *)a, value);
+  return value;
+#endif
+}
+HL_INLINE void* hl_atomic_store_ptr(void* *a, void* value) {
+#if defined(HL_GCC_ATOMICS)
+  __atomic_store(a, &value, __ATOMIC_SEQ_CST);
+  return value;
+#elif defined(HL_VCC_ATOMICS)
+  _InterlockedExchangePointer((void* volatile *)a, value);
   return value;
 #endif
 }

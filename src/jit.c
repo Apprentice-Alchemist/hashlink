@@ -19,6 +19,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
+#include <hl.h>
 #ifdef _MSC_VER
 #pragma warning(disable:4820)
 #endif
@@ -116,6 +117,12 @@ typedef enum {
 	CMP16,
 	TEST16,
 	// XCHG operations
+	XCHG8,
+	CMPXCHG8,
+	XADD8,
+	XCHG16,
+	CMPXCHG16,
+	XADD16,
 	XCHG,
 	CMPXCHG,
 	XADD,
@@ -489,9 +496,15 @@ static opform OP_FORMS[_CPU_LAST] = {
 	{ "CMP16", OP16(0x3B), OP16(0x39) },
 	{ "TEST16", OP16(0x85) },
 	// XCHG operations
+	{ "XCHG8", 0, 0x86 },
+	{ "CMPXCHG8", 0, LONG_OP(0xFB0)},
+	{ "XADD8", 0, LONG_OP(0x0FC0) },
+	{ "XCHG16", 0, OP16(0x86) },
+	{ "CMPXCHG16", 0, OP16(0xFB1)},
+	{ "XADD16", 0, OP16(0x0FC1) },
 	{ "XCHG", 0, 0x87 },
 	{ "CMPXCHG", 0, LONG_OP(0x0FB1) },
-	{ "XADD", 0, LONG_OP(0x0FC1) }
+	{ "XADD", 0, LONG_OP(0x0FC1) },
 };
 
 #ifdef HL_64
@@ -4061,14 +4074,42 @@ int hl_jit_function( jit_ctx *ctx, hl_module *m, hl_function *f ) {
 		case ONop:
 			break;
                 case OAtomicAdd: {
+				CpuOp xchgOp;
+				bool is64 = false;
+				switch (dst->t->kind) {
+					case HUI8: xchgOp = XADD8; break;
+					case HUI16: xchgOp = XADD16; break;
+					case HI32: xchgOp = XADD; break;
+					default:
+						xchgOp = XADD;
+						is64 = true;
+					break;
+				};
                   scratch(ra->current);
                   preg *tmp = alloc_cpu(ctx, rb, true);
                   preg *pa = pmem(&p, alloc_cpu(ctx, ra, true)->id, 0);
                   B(0xF0); // LOCK prefix
-                  op(ctx, XADD, pa, tmp, false);
+                  op(ctx, xchgOp, pa, tmp, is64);
                   store(ctx, dst, tmp, false);
                 } break;
                                   case OAtomicSub: {
+                                    CpuOp xchgOp;
+                                    bool is64 = false;
+                                    switch (dst->t->kind) {
+                                    case HUI8:
+                                      xchgOp = XADD8;
+                                      break;
+                                    case HUI16:
+                                      xchgOp = XADD16;
+                                      break;
+                                    case HI32:
+                                      xchgOp = XADD;
+                                      break;
+                                    default:
+                                      xchgOp = XADD;
+                                      is64 = true;
+                                      break;
+                                    };
                                     scratch(ra->current);
                                     preg *tmp = alloc_cpu(ctx, rb, true);
 									preg *tmp2 = alloc_reg(ctx, RCPU);
@@ -4078,13 +4119,30 @@ int hl_jit_function( jit_ctx *ctx, hl_module *m, hl_function *f ) {
                                         pmem(&p, alloc_cpu(ctx, ra, true)->id,
                                              0);
 											 B(0xF0); // LOCK prefix
-                                    op(ctx, XADD,
+                                    op(ctx, xchgOp,
                                        pa,
-                                       tmp2, false);
+                                       tmp2, is64);
                                     store(ctx, dst, tmp2, false);
                                   } break;
                 case OAtomicAnd:
 		{
+                  CpuOp xchgOp;
+                  bool is64 = false;
+                  switch (dst->t->kind) {
+                  case HUI8:
+                    xchgOp = CMPXCHG8;
+                    break;
+                  case HUI16:
+                    xchgOp = CMPXCHG16;
+                    break;
+                  case HI32:
+                    xchgOp = CMPXCHG;
+                    break;
+                  default:
+                    xchgOp = CMPXCHG;
+                    is64 = true;
+                    break;
+                  };
                   scratch(ra->current);
                   scratch(PEAX);
 				  RLOCK(PEAX);
@@ -4095,8 +4153,8 @@ int hl_jit_function( jit_ctx *ctx, hl_module *m, hl_function *f ) {
                   op(ctx, AND, tmp, fetch(rb), false);
                   preg *pa = pmem(&p, alloc_cpu(ctx, ra, true)->id, 0);
                   B(0xF0); // LOCK prefix
-                  op(ctx, CMPXCHG, pa,
-                     tmp, false);
+                  op(ctx, xchgOp, pa,
+                     tmp, is64);
                   int jump;
                   XJump(JNeq, jump);
                   patch_jump_to(ctx, jump, jmpPos);
@@ -4104,6 +4162,17 @@ int hl_jit_function( jit_ctx *ctx, hl_module *m, hl_function *f ) {
         }
 		break;
         case OAtomicOr: {
+							CpuOp xchgOp;
+				bool is64 = false;
+				switch (dst->t->kind) {
+					case HUI8: xchgOp = CMPXCHG8; break;
+					case HUI16: xchgOp = CMPXCHG16; break;
+					case HI32: xchgOp = CMPXCHG; break;
+					default:
+						xchgOp = CMPXCHG;
+						is64 = true;
+					break;
+				};
           scratch(ra->current);
           scratch(PEAX);
           RLOCK(PEAX);
@@ -4114,14 +4183,25 @@ int hl_jit_function( jit_ctx *ctx, hl_module *m, hl_function *f ) {
           op(ctx, OR, tmp, fetch(rb), false);
           preg *pa = pmem(&p, alloc_cpu(ctx, ra, true)->id, 0);
           B(0xF0); // LOCK prefix
-          op(ctx, CMPXCHG, pa, tmp,
-             false);
+          op(ctx, xchgOp, pa, tmp,
+             is64);
           int jump;
           XJump(JNeq, jump);
           patch_jump_to(ctx, jump, jmpPos);
           store(ctx, dst, PEAX, false);
         } break;
         case OAtomicXor: {
+							CpuOp xchgOp;
+				bool is64 = false;
+				switch (dst->t->kind) {
+					case HUI8: xchgOp = CMPXCHG8; break;
+					case HUI16: xchgOp = CMPXCHG16; break;
+					case HI32: xchgOp = CMPXCHG; break;
+					default:
+						xchgOp = CMPXCHG;
+						is64 = true;
+					break;
+				};
           scratch(ra->current);
           scratch(PEAX);
           RLOCK(PEAX);
@@ -4134,42 +4214,95 @@ int hl_jit_function( jit_ctx *ctx, hl_module *m, hl_function *f ) {
                                         pmem(&p, alloc_cpu(ctx, ra, true)->id,
                                              0);
           B(0xF0); // LOCK prefix
-          op(ctx, CMPXCHG, pa, tmp,
-             false);
+          op(ctx, xchgOp, pa, tmp,
+             is64);
           int jump;
           XJump(JNeq, jump);
           patch_jump_to(ctx, jump, jmpPos);
           store(ctx, dst, PEAX, false);
         } break;
         case OAtomicCompareExchange:{
-			scratch(ra->current);
+          CpuOp xchgOp;
+          bool is64 = false;
+          switch (dst->t->kind) {
+          case HUI8:
+            xchgOp = CMPXCHG8;
+            break;
+          case HUI16:
+            xchgOp = CMPXCHG16;
+            break;
+          case HI32:
+            xchgOp = CMPXCHG;
+            break;
+          default:
+            xchgOp = CMPXCHG;
+            is64 = true;
+            break;
+          };
+                        scratch(ra->current);
 			scratch(PEAX);
 			RLOCK(PEAX);
 			copy_from(ctx, PEAX, rb);
             preg *replacement = alloc_cpu(ctx, R((int)(int_val)o->extra), true);
             preg *pa = pmem(&p, alloc_cpu(ctx, ra, true)->id, 0);
             B(0xF0); // LOCK prefix
-            op(ctx, CMPXCHG, pa,
-               replacement, false);
+            op(ctx, xchgOp, pa,
+               replacement, is64);
             store(ctx, dst, PEAX, false);
 						}
 			break;
 		case OAtomicExchange:{
-			scratch(ra->current);
+                  CpuOp xchgOp;
+                  bool is64 = false;
+                  switch (dst->t->kind) {
+                  case HUI8:
+                    xchgOp = XCHG8;
+                    break;
+                  case HUI16:
+                    xchgOp = XCHG16;
+                    break;
+                  case HI32:
+                    xchgOp = XCHG;
+                    break;
+                  default:
+                    xchgOp = XCHG;
+                    is64 = true;
+                    break;
+                  };
+                        scratch(ra->current);
 			preg* tmp = alloc_cpu(ctx, rb, true);
                         preg *pa = pmem(&p, alloc_cpu(ctx, ra, true)->id, 0);
-                        op(ctx, XCHG, pa,
-                           tmp, false);
+                        op(ctx, xchgOp, pa,
+                           tmp, is64);
                         store(ctx, dst, tmp, false);}
                         break;
         case OAtomicLoad:{
-			copy_to(ctx, dst, pmem(&p, alloc_cpu(ctx, ra, true)->id, 0));}
+			// MOV is atomic on x86(_64)
+			copy_to(ctx, dst, pmem(&p, alloc_cpu(ctx, ra, true)->id, 0));
+			}
 			break;
 		case OAtomicStore: 
 			{
-				copy_to(ctx, dst, fetch(rb));
+                  CpuOp xchgOp;
+                  bool is64 = false;
+                  switch (dst->t->kind) {
+                  case HUI8:
+                    xchgOp = XCHG8;
+                    break;
+                  case HUI16:
+                    xchgOp = XCHG16;
+                    break;
+                  case HI32:
+                    xchgOp = XCHG;
+                    break;
+                  default:
+                    xchgOp = XCHG;
+                    is64 = true;
+                    break;
+                  };
+                copy_to(ctx, dst, fetch(rb));
 				preg *tmp = alloc_cpu(ctx, rb, true);
-				op(ctx, XCHG, pmem(&p, alloc_cpu(ctx, ra, true)->id, 0), tmp, false);
+				op(ctx, xchgOp, pmem(&p, alloc_cpu(ctx, ra, true)->id, 0), tmp, is64);
 			}
             break;
 		default:
