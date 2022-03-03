@@ -1,0 +1,212 @@
+[
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "include/pcre/pcre_chartables.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o include/pcre/pcre_chartables.o -c include/pcre/pcre_chartables.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "include/pcre/pcre_compile.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o include/pcre/pcre_compile.o -c include/pcre/pcre_compile.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "include/pcre/pcre_dfa_exec.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o include/pcre/pcre_dfa_exec.o -c include/pcre/pcre_dfa_exec.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "include/pcre/pcre_exec.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o include/pcre/pcre_exec.o -c include/pcre/pcre_exec.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "include/pcre/pcre_fullinfo.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o include/pcre/pcre_fullinfo.o -c include/pcre/pcre_fullinfo.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "include/pcre/pcre_globals.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o include/pcre/pcre_globals.o -c include/pcre/pcre_globals.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "include/pcre/pcre_newline.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o include/pcre/pcre_newline.o -c include/pcre/pcre_newline.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "include/pcre/pcre_string_utils.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o include/pcre/pcre_string_utils.o -c include/pcre/pcre_string_utils.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "include/pcre/pcre_tables.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o include/pcre/pcre_tables.o -c include/pcre/pcre_tables.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "include/pcre/pcre_xclass.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o include/pcre/pcre_xclass.o -c include/pcre/pcre_xclass.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "include/pcre/pcre16_ord2utf16.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o include/pcre/pcre16_ord2utf16.o -c include/pcre/pcre16_ord2utf16.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "include/pcre/pcre16_valid_utf16.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o include/pcre/pcre16_valid_utf16.o -c include/pcre/pcre16_valid_utf16.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "include/pcre/pcre_ucd.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o include/pcre/pcre_ucd.o -c include/pcre/pcre_ucd.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/gc.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/gc.o -c src/gc.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/array.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/array.o -c src/std/array.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/buffer.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/buffer.o -c src/std/buffer.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/bytes.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/bytes.o -c src/std/bytes.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/cast.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/cast.o -c src/std/cast.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/date.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/date.o -c src/std/date.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/error.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/error.o -c src/std/error.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/debug.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/debug.o -c src/std/debug.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/file.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/file.o -c src/std/file.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/fun.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/fun.o -c src/std/fun.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/maps.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/maps.o -c src/std/maps.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/math.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/math.o -c src/std/math.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/obj.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/obj.o -c src/std/obj.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/random.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/random.o -c src/std/random.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/regexp.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/regexp.o -c src/std/regexp.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/socket.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/socket.o -c src/std/socket.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/string.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/string.o -c src/std/string.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/sys.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/sys.o -c src/std/sys.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/types.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/types.o -c src/std/types.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/ucs2.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/ucs2.o -c src/std/ucs2.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/thread.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/thread.o -c src/std/thread.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/process.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/process.o -c src/std/process.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/std/track.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/std/track.o -c src/std/track.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/code.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/code.o -c src/code.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/jit.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/jit.o -c src/jit.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/main.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/main.o -c src/main.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/module.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/module.o -c src/module.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/debugger.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/debugger.o -c src/debugger.c"
+    },
+    {
+        "directory": "/home/horseboy/development/primary/hashlink",
+        "file": "src/profile.c",
+        "command": "clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Wall -I src -std=c11 -I include -I include/pcre -I include/mikktspace -I include/minimp3 -D LIBHL_EXPORTS -fPIC -pthread -fno-omit-frame-pointer -g -o src/profile.o -c src/profile.c"
+    }
+]

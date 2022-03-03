@@ -87,6 +87,7 @@
 #if defined(__aarch64__) || defined(__aarch64) || defined(__arm64) ||          \
     defined(__arm64__) || defined(_M_ARM64)
 #	define HL_AARCH64
+#	define HL_64
 #endif
 
 #if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) ||           \

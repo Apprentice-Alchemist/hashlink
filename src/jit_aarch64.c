@@ -9,14 +9,15 @@
 // Android
 //      https://developer.android.com/ndk/guides/abis#arm64-v8a
 
-#ifndef HL_AARCH64
-#error "Do not include jit_aarch64.c directly, include jit.c instead."
-#endif
+// #ifndef HL_AARCH64
+// #error "Do not include jit_aarch64.c directly, include jit.c instead."
+// #endif
 
 #include <assert.h>
 #include <hlmodule.h>
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 // CPU register
@@ -251,9 +252,6 @@ struct jit_ctx {
 	void *static_functions[8];
 	bool calling;
 };
-
-// static preg _unused = {RUNUSED};
-// #define UNUSED &_unused
 
 static void jit_buf(jit_ctx *ctx) {
 	if (BUF_POS() + MAX_OP_SIZE > ctx->bufSize) {
@@ -1403,7 +1401,8 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
 			           (int_val)hl_null_access);
 			emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
 			end_call(ctx, 0);
-			*(int*)(ctx->startBuf + pos) |= (((BUF_POS() - pos) & 0x7FFFF) << 5);
+			*(int *)(ctx->startBuf + pos) |=
+			    (((BUF_POS() - pos) & 0x7FFFF) << 5);
 			break;
 		}
 		case OTrap:
@@ -1621,6 +1620,7 @@ static void hl_jit_init_module(jit_ctx *ctx, hl_module *m) {
 	if (m->code->hasdebug)
 		ctx->debug = (hl_debug_infos *)malloc(sizeof(hl_debug_infos) *
 		                                      m->code->nfunctions);
+
 	// for (int i = 0;i < m->code->nfloats;i++) {
 	//     jit_buf(ctx);
 	//     *ctx->buf.d++ = m->code->floats[i];
@@ -1722,6 +1722,11 @@ void *hl_jit_code(jit_ctx *ctx, hl_module *m, int *codesize,
 	clear_cache(code, size);
 	*codesize = size;
 	*debug = ctx->debug;
+	printf("code: %p, size: %lu\n", code, size);
+	fflush(stdout);
+	FILE *file = fopen("code.dump", "w+");
+	fwrite(code, 1, size, file);
+	fclose(file);
 	return code;
 }
 

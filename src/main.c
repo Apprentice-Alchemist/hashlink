@@ -228,7 +228,7 @@ int main(int argc, pchar *argv[]) {
 	cl.t = ctx.code->functions[ctx.m->functions_indexes[ctx.m->code->entrypoint]].type;
 	cl.fun = ctx.m->functions_ptrs[ctx.m->code->entrypoint];
 	cl.hasValue = 0;
-	// setup_handler();
+	setup_handler();
 	hl_profile_setup(profile_count);
 
 	hl_trap_ctx trap;
