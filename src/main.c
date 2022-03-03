@@ -230,7 +230,9 @@ int main(int argc, pchar *argv[]) {
 	cl.hasValue = 0;
 	setup_handler();
 	hl_profile_setup(profile_count);
-	ctx.ret = hl_dyn_call_safe(&cl,NULL,0,&isExc);
+	// ctx.ret = hl_dyn_call_safe(&cl,NULL,0,&isExc);
+	((void(*)())cl.fun)();
+
 	hl_profile_end();
 	if( isExc ) {
 		varray *a = hl_exception_stack();
