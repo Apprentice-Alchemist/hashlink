@@ -9,7 +9,7 @@ INSTALL_INCLUDE_DIR ?= $(PREFIX)/include
 
 LIBS=fmt sdl ssl openal ui uv mysql sqlite
 
-CFLAGS = -Wall -O3 -I src -msse2 -mfpmath=sse -std=c11 -D LIBHL_EXPORTS
+CFLAGS = -Wall -O3 -I src -std=c11 -D LIBHL_EXPORTS
 LFLAGS = -L. -lhl
 EXTRA_LFLAGS ?=
 LIBFLAGS =
@@ -31,7 +31,7 @@ STD = src/std/array.o src/std/buffer.o src/std/bytes.o src/std/cast.o src/std/da
 	src/std/socket.o src/std/string.o src/std/sys.o src/std/types.o src/std/ucs2.o src/std/thread.o src/std/process.o \
 	src/std/track.o
 
-HL = src/code.o src/jit.o src/main.o src/module.o src/debugger.o src/profile.o
+HL = src/code.o src/jit/jit.o src/main.o src/module.o src/debugger.o src/profile.o
 
 FMT_INCLUDE = -I include/mikktspace -I include/minimp3
 
@@ -249,4 +249,4 @@ clean_o:
 clean: clean_o
 	rm -f hl hl.exe libhl.$(LIBEXT) *.hdll
 
-.PHONY: libhl hl hlc fmt sdl libs release
+.PHONY: libhl hl hlc fmt sdl libs release src/jit/jit.c

@@ -80,7 +80,16 @@
 #	define HL_BSD
 #endif
 
-#if defined(_64BITS) || defined(__x86_64__) || defined(_M_X64) || defined(__LP64__)
+#if defined(__aarch64__) || defined(_M_ARM64)
+#	define HL_AARCH64
+#endif
+
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) ||             \
+    defined(_M_IX86)
+#	define HL_X86
+#endif
+
+#if defined(_64BITS) || defined(__x86_64__) || defined(_M_X64) || defined(__LP64__) || defined(HL_AARCH64)
 #	define HL_64
 #endif
 
