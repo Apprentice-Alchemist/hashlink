@@ -753,6 +753,9 @@ static preg *alloc_register(jit_ctx *ctx, preg_kind kind) {
   int oldest_age = ctx->currentPos;
   for (int i = 0; i < count; i++) {
     preg *p = REG_AT(kind == RFPU ? VREG(i) : XREG(i));
+    if(i == 30 || i == 29 || i == 18 || i == 17 || i == 16) {
+      continue;
+    }
     if (p->lock >= ctx->currentPos)
       continue;
     if (ctx->calling && is_call_reg(p))
@@ -1069,8 +1072,12 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
   jit_buf(ctx);
   ctx->functionPos = BUF_POS();
   assert(ctx->startBuf != NULL && ctx->bufSize != 0);
+  emit_ari_imm(ctx, SUB, true, 8, REG_AT(SP), REG_AT(SP));
+  emit_str(ctx, HREF, 0, 0, 0, REG_AT(XREG(30)), REG_AT(SP));
+  emit_ari_imm(ctx, SUB, true, 8, REG_AT(SP), REG_AT(SP));
+  emit_str(ctx, HREF, 0, 0, 0, REG_AT(XREG(29)), REG_AT(SP));
   // stp x29, x30, [sp, #-16]!
-  W(0xA9BF7BFD);
+  // W(0xA9BF7BFD);
   // mov x29, sp
   emit_mov_rr(ctx, true, REG_AT(SP), REG_AT(29));
   if (ctx->totalRegsSize)
@@ -1428,8 +1435,12 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
         emit_ari_imm(ctx, ADD, true, ctx->totalRegsSize, REG_AT(SP),
                      REG_AT(SP));
       }
+      emit_ldr(ctx, HREF, 0, REG_AT(29), REG_AT(SP));
+      emit_ari_imm(ctx, ADD, true, 8, REG_AT(SP), REG_AT(SP));
+      emit_ldr(ctx, HREF, 0, REG_AT(30), REG_AT(SP));
+      emit_ari_imm(ctx, ADD, true, 8, REG_AT(SP), REG_AT(SP));
       // ldp x29, x30, [sp], #16
-      W(0xA8C17BFD);
+      // W(0xA8C17BFD);
       emit_uncond_branch_reg(ctx, RET, REG_AT(30));
       break;
     case OThrow:
