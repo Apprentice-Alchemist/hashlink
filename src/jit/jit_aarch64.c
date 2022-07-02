@@ -1008,7 +1008,7 @@ static void make_dyn_cast(jit_ctx *ctx, vreg *dst, vreg *v) {
 }
 
 int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
-  fprintf(ctx->dump_file, "function %i\n", f->findex);
+  if(ctx->dump_file) fprintf(ctx->dump_file, "function %i\n", f->findex);
   size_t codePos = BUF_POS();
 
   int nargs = f->type->fun->nargs;
@@ -1103,20 +1103,20 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
     }
     case OInt:
-      fprintf(ctx->dump_file, "OInt r%i, %i\n", o->p1, o->p2);
+      if(ctx->dump_file)fprintf(ctx->dump_file, "OInt r%i, %i\n", o->p1, o->p2);
       load_const(ctx, fetch(ctx, R(o->p1), false), sizeof(int), o->p2);
       break;
     case OFloat:
       break;
     case OBool: {
-      fprintf(ctx->dump_file, "OBool r%i, %s\n", o->p1,
+      if(ctx->dump_file) fprintf(ctx->dump_file, "OBool r%i, %s\n", o->p1,
               o->p2 ? "true" : "false");
       preg *dst = fetch(ctx, R(o->p1), false);
       emit_ari_imm(ctx, ADD, false, o->p2, REG_AT(ZR), dst);
       break;
     }
     case OBytes: {
-      fprintf(ctx->dump_file, "OBytes r%i, %i\n", o->p1, o->p2);
+      if(ctx->dump_file)fprintf(ctx->dump_file, "OBytes r%i, %i\n", o->p1, o->p2);
       intptr_t b = (intptr_t)(m->code->version >= 5
                                   ? m->code->bytes + m->code->bytes_pos[o->p2]
                                   : m->code->strings[o->p2]);
@@ -1125,14 +1125,14 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
     }
     case OString: {
-      fprintf(ctx->dump_file, "OString r%i, %i\n", o->p1, o->p2);
+      if(ctx->dump_file)fprintf(ctx->dump_file, "OString r%i, %i\n", o->p1, o->p2);
       intptr_t s = (intptr_t)hl_get_ustring(m->code, o->p2);
       preg *pdst = fetch(ctx, dst, false);
       load_const(ctx, pdst, sizeof(vbyte *), s);
       break;
     }
     case ONull: {
-      fprintf(ctx->dump_file, "ONull r%i\n", o->p1);
+      if(ctx->dump_file)fprintf(ctx->dump_file, "ONull r%i\n", o->p1);
       preg *pdst = fetch(ctx, dst, false);
       emit_log_shift_reg(ctx, ORR, true, REG_AT(ZR), REG_AT(ZR), pdst, LSL, 0);
       break;
