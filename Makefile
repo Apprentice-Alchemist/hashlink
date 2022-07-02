@@ -9,7 +9,7 @@ INSTALL_INCLUDE_DIR ?= $(PREFIX)/include
 
 LIBS=fmt sdl ssl openal ui uv mysql sqlite
 
-CFLAGS = -Wall -O3 -I src -std=c11 -D LIBHL_EXPORTS
+CFLAGS = -Wall -I src -std=c11 -D LIBHL_EXPORTS
 LFLAGS = -L. -lhl
 EXTRA_LFLAGS ?=
 LIBFLAGS =
@@ -96,7 +96,7 @@ LIB += ${HL_DEBUG}
 else
 
 # Linux
-CFLAGS += -m$(MARCH) -fPIC -pthread -fno-omit-frame-pointer
+CFLAGS += -m$(MARCH) -fPIC -pthread -fno-omit-frame-pointer $(PCRE_INCLUDE)
 LFLAGS += -lm -Wl,-rpath,.:'$$ORIGIN':$(INSTALL_LIB_DIR) -Wl,--export-dynamic -Wl,--no-undefined
 
 ifeq ($(MARCH),32)
@@ -118,6 +118,8 @@ endif
 
 ifdef DEBUG
 CFLAGS += -g
+else
+CFLAGS += -O3
 endif
 
 all: libhl hl libs

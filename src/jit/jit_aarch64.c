@@ -69,75 +69,9 @@
   }
 
 typedef enum CpuOp {
-  ADR,
-  ADRP,
-
-  ADD,
-  ADDS,
-  SUB,
-  SUBS,
-
-  AND,
-  ORR,
-  EOR,
-  ANDS,
-
-  ORN,
-  EON,
-  BIC,
-  BICS,
-
-  ADC,
-  ADCS,
-  SBC,
-  SBCS,
-
-  MOVN,
-  MOVZ,
-  MOVK,
-
-  SBFM,
-  BFM,
-  UBFM,
-
-  EXTR,
-
-  BCOND,
-
-  BR,
-  BLR,
-  RET,
-
-  B,
-  BL,
-
-  CBZ,
-  CBNZ,
-
-  TBZ,
-  TBNZ,
-
-  LDR,
-  LDRB,
-  LDRSB,
-  LDRH,
-  LDRSH,
-  SDR,
-  SDRB,
-  SDRSB,
-  SDRH,
-  SDRSH,
-
-  LSLV,
-  LSRV,
-  ASRV,
-  RORV,
-  UDIV,
-  SDIV,
-
-  RBIT,
-  REV16,
-  REV,
+  #define OP(name) name,
+  #include "aarch64_ops.h"
+  #undef OP
 } CpuOp;
 
 typedef enum FpuOp {
@@ -198,7 +132,7 @@ typedef enum BarrierOption {
 typedef struct jlist jlist;
 struct jlist {
   CpuOp op;
-  int pos;
+  intptr_t pos;
   int target;
   jlist *next;
 };
@@ -251,6 +185,8 @@ struct jit_ctx {
   int longjump;
   void *static_functions[8];
   bool calling;
+
+  FILE *dump_file;
 };
 
 static void jit_buf(jit_ctx *ctx) {
@@ -295,6 +231,27 @@ static int type_stack_size(hl_type *t) {
 }
 
 #define W(v) *ctx->buf++ = v
+// #define DUMP_NAME(name)                                                        \
+//   if (ctx->dump_file)                                                          \
+//     fprintf(ctx->dump_file, "%s ", name);
+// #define DUMP_OP(op)                                                            \
+//   if (ctx->dump_file)                                                          \
+//     fprintf(ctx->dump_file, "%s ", op_to_string(op));
+const char *op_to_string(CpuOp op) {
+  switch (op) {
+#define OP(code)                                                               \
+  case code:                                                                   \
+    return #code;
+#include "aarch64_ops.h"
+#undef OP
+  }
+}
+
+inline void DUMP_REG(jit_ctx *ctx, preg *reg, bool is32) {
+  if (ctx->dump_file) {
+    fprintf(ctx->dump_file, "%s%i", is32 ? "w" : "x", reg->id);
+  }
+}
 
 static void emit_adr(jit_ctx *ctx, CpuOp cop, uint64_t imm, preg *d) {
   uint32_t op;
@@ -307,6 +264,10 @@ static void emit_adr(jit_ctx *ctx, CpuOp cop, uint64_t imm, preg *d) {
     break;
   default:
     ASSERT(cop);
+  }
+
+  if (ctx->dump_file) {
+    fprintf(ctx->dump_file, "adrp x%i, #%lu\n", d->id, imm);
   }
   // https://github.com/bytecodealliance/wasmtime/blob/3ba9e5865a8171d1b4547bcabe525666d030c18b/cranelift/codegen/src/isa/aarch64/inst/emit.rs#L333
   uint32_t immlo = imm & 3;
@@ -341,6 +302,11 @@ static void emit_ari_imm(jit_ctx *ctx, CpuOp cop, bool is64, int32_t imm,
     break;
   default:
     ASSERT(cop);
+  }
+
+  if (ctx->dump_file) {
+    fprintf(ctx->dump_file, "%s x%i, x%i, #%i\n", op_to_string(cop), d->id,
+            n->id, imm);
   }
   W(0x11000000 | (sf << 31) | (op << 30) | S << 29 | (sh << 22) |
     ((imm & 0xFFF) << 10) | ((n->id & 0x1F) << 5) | (d->id & 0x1F));
@@ -392,15 +358,62 @@ static void emit_movw_imm(jit_ctx *ctx, CpuOp cop, bool is64, int64_t imm,
   default:
     ASSERT(cop);
   }
+
+  if (ctx->dump_file)
+    fprintf(ctx->dump_file, "mov %lx, shift %i\n", imm, hw);
+
   W(0x12800000 | (sf << 31) | (opc << 29) | (hw << 21) | ((imm & 0xFFFF) << 5) |
     (d->id & 0x1F));
 }
 
+const char *cond_to_string(CondCode cond) {
+  switch (cond) {
+  case EQ:
+    return "eq";
+  case NE:
+    return "ne";
+  case HS:
+    return "hs";
+  case LO:
+    return "lo";
+  case MI:
+    return "mi";
+  case PL:
+    return "pl";
+  case VS:
+    return "vs";
+  case VC:
+    return "vc";
+  case HI:
+    return "hi";
+  case LS:
+    return "ls";
+  case GE:
+    return "ge";
+  case LT:
+    return "lt";
+  case GT:
+    return "gt";
+  case LE:
+    return "le";
+  case AL:
+    return "al";
+  default:
+    ASSERT(cond);
+  }
+}
+
 static void emit_cond_branch(jit_ctx *ctx, CondCode cond, uint32_t imm) {
+  if (ctx->dump_file)
+    fprintf(ctx->dump_file, "b%s %i\n", cond_to_string(cond), imm);
   W(0x54000000 | ((imm & 0x7FFFF) << 5) | cond);
 }
 
-static void emit_brk(jit_ctx *ctx, uint16_t imm) { W(0xD4200000 | (imm << 5)); }
+static void emit_brk(jit_ctx *ctx, uint16_t imm) {
+  if (ctx->dump_file)
+    fprintf(ctx->dump_file, "brk %i\n", imm);
+  W(0xD4200000 | (imm << 5));
+}
 
 static void emit_barrier(jit_ctx *ctx, BarrierType type, BarrierOption opt) {
   uint32_t CRm = opt;
@@ -423,6 +436,8 @@ static void emit_barrier(jit_ctx *ctx, BarrierType type, BarrierOption opt) {
     op2 = 7;
     break;
   }
+  if(ctx->dump_file)
+    fprintf(ctx->dump_file, "barrier %i, %i\n", CRm, op2);
   W(0xD5033000 | (CRm << 8) | (op2 << 5) | Rt);
 }
 
@@ -440,15 +455,21 @@ static void emit_uncond_branch_reg(jit_ctx *ctx, CpuOp cop, preg *n) {
   default:
     ASSERT(cop);
   }
+  if (ctx->dump_file)
+    fprintf(ctx->dump_file, "br %i\n", n->id);
 }
 
 static void emit_uncond_branch_imm(jit_ctx *ctx, CpuOp cop, uint64_t imm) {
   imm &= 0x3FFFFFF;
   switch (cop) {
   case B:
+    if (ctx->dump_file)
+      fprintf(ctx->dump_file, "b %lx\n", imm);
     W(0x14000000 | imm);
     break;
   case BL:
+    if (ctx->dump_file)
+      fprintf(ctx->dump_file, "bl %lx\n", imm);
     W(0x94000000 | imm);
     break;
   default:
@@ -492,11 +513,16 @@ static void emit_data_proc_rrr(jit_ctx *ctx, CpuOp cop, bool is64, preg *m,
   default:
     ASSERT(cop);
   }
-
+  if(ctx->dump_file) {
+    fprintf(ctx->dump_file, "data_proc_rrr %i, %i, %i, %i\n", sf, S, opcode,
+            n->id);
+  }
   W(0x1AC00000 | (sf << 31) | (S << 29) | ((m->id & 0x1F) << 16) |
     (opcode << 10) | ((n->id & 0x1F) << 5) | (d->id & 0x1F));
 }
-static void emit_data_proc_rr(jit_ctx *ctx, CpuOp cop, bool is64) {}
+static void emit_data_proc_rr(jit_ctx *ctx, CpuOp cop, bool is64) {
+  TODO("todo");
+}
 
 typedef enum ShiftType { LSL = 0, LSR = 1, ASR = 2, ROR = 3 } ShiftType;
 
@@ -544,7 +570,10 @@ static void emit_log_shift_reg(jit_ctx *ctx, CpuOp cop, bool is64, preg *m,
   default:
     ASSERT(cop);
   }
-
+  if(ctx->dump_file) {
+    fprintf(ctx->dump_file, "%s %i, %i, %i, %i, %i, %i,\n", op_to_string(cop),
+            opc, N, m->id, n->id, d->id, shift);
+  }
   W(0x0A000000 | (sf << 31) | (opc << 29) | (shift << 22) | (N << 21) |
     (m->id << 16) | (imm << 10) | (n->id << 5) | d->id);
 }
@@ -577,19 +606,35 @@ static void emit_ari_shift_reg(jit_ctx *ctx, CpuOp cop, bool is64, preg *m,
   default:
     ASSERT(cop);
   }
+  if(ctx->dump_file) {
+    fprintf(ctx->dump_file, "%s %i, %i, %i, %i, %i, %i,\n", op_to_string(cop),
+            op, S, m->id, n->id, d->id, shift);
+  }
   W(0x0B000000 | (sf << 31) | (op << 30) | (shift << 22) | (S << 29) |
     (m->id << 16) | (imm << 10) | (n->id << 5) | d->id);
 }
 
-static void emit_ari_ext_reg(jit_ctx *ctx, CpuOp cop, bool is64) {}
-static void emit_ari_carry(jit_ctx *ctx, CpuOp cop, bool is64) {}
-static void emit_cond_comp_reg(jit_ctx *ctx, CpuOp cop, bool is64) {}
-static void emit_cond_comp_imm(jit_ctx *ctx, CpuOp cop, bool is64) {}
+static void emit_ari_ext_reg(jit_ctx *ctx, CpuOp cop, bool is64) {
+  TODO("todo");
+}
+static void emit_ari_carry(jit_ctx *ctx, CpuOp cop, bool is64) { TODO("todo"); }
+static void emit_cond_comp_reg(jit_ctx *ctx, CpuOp cop, bool is64) {
+  TODO("todo");
+}
+static void emit_cond_comp_imm(jit_ctx *ctx, CpuOp cop, bool is64) {
+  TODO("todo");
+}
 
-static void emit_float_comp(jit_ctx *ctx, FpuOp cop, bool is64) {}
-static void emit_float_imm(jit_ctx *ctx, FpuOp cop, bool is64) {}
-static void emit_float_cond_comp(jit_ctx *ctx, FpuOp cop, bool is64) {}
-static void emit_float_data_proc_rrr(jit_ctx *ctx, FpuOp cop, bool is64) {}
+static void emit_float_comp(jit_ctx *ctx, FpuOp cop, bool is64) {
+  TODO("todo");
+}
+static void emit_float_imm(jit_ctx *ctx, FpuOp cop, bool is64) { TODO("todo"); }
+static void emit_float_cond_comp(jit_ctx *ctx, FpuOp cop, bool is64) {
+  TODO("todo");
+}
+static void emit_float_data_proc_rrr(jit_ctx *ctx, FpuOp cop, bool is64) {
+  TODO("todo");
+}
 
 static void emit_mov_rr(jit_ctx *ctx, bool is64, preg *r, preg *d) {
   if (r->id == 31 || d->id == SP) {
@@ -749,11 +794,12 @@ static void load(jit_ctx *ctx, vreg *r, preg *into) {
   }
 }
 
-static void bind(vreg *r, preg *p) {
+static void bind(jit_ctx *ctx, vreg *r, preg *p) {
   if (r->current)
     r->current->holds = NULL;
   p->holds = r;
   r->current = p;
+  scratch(ctx, p, false);
 }
 
 static void scratch(jit_ctx *ctx, preg *p, bool release) {
@@ -898,7 +944,7 @@ static void call(jit_ctx *ctx, vreg *dst, int findex, int arg_count,
     }
   }
   if (dst && dst->t->kind != HVOID)
-    bind(dst, REG_AT(0));
+    bind(ctx, dst, REG_AT(0));
   end_call(ctx, stack_size);
 }
 
@@ -908,7 +954,7 @@ static void call_reg(jit_ctx *ctx, vreg *dst, preg *fn_adr, int arg_count,
   uint32_t stack_size = pass_parameters(ctx, arg_count, args);
   emit_uncond_branch_reg(ctx, BLR, fn_adr);
   if (dst && dst->t->kind != HVOID)
-    bind(dst, REG_AT(0));
+    bind(ctx, dst, REG_AT(0));
   end_call(ctx, stack_size);
 }
 
@@ -924,7 +970,7 @@ static void call_native_consts(jit_ctx *ctx, vreg *dst, intptr_t fn_adr,
   load_const(ctx, REG_AT(17), sizeof(void *), fn_adr);
   emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
   if (dst && dst->t->kind != HVOID)
-    bind(dst, REG_AT(0));
+    bind(ctx, dst, REG_AT(0));
   end_call(ctx, 0);
 }
 
@@ -947,10 +993,11 @@ static void *get_dyncast(hl_type *t) {
 static void make_dyn_cast(jit_ctx *ctx, vreg *dst, vreg *v) {
   start_call(ctx);
   if (v->stackPos >= 0) {
-    emit_ari_imm(ctx, ADD, true, v->stackPos, REG_AT(ZR), REG_AT(0));
+    emit_ari_imm(ctx, ADD, true, v->stackPos, REG_AT(29), REG_AT(0));
   } else {
-    emit_ari_imm(ctx, SUB, true, v->stackPos, REG_AT(ZR), REG_AT(0));
+    emit_ari_imm(ctx, SUB, true, -v->stackPos, REG_AT(29), REG_AT(0));
   }
+
   load_const(ctx, REG_AT(1), sizeof(hl_type *), (int_val)v->t);
   if (!T_IS_FLOAT(dst->t->kind)) {
     load_const(ctx, REG_AT(2), sizeof(hl_type *), (int_val)dst->t);
@@ -961,6 +1008,7 @@ static void make_dyn_cast(jit_ctx *ctx, vreg *dst, vreg *v) {
 }
 
 int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
+  fprintf(ctx->dump_file, "function %i\n", f->findex);
   size_t codePos = BUF_POS();
 
   int nargs = f->type->fun->nargs;
@@ -1032,7 +1080,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       if (i > 7)
         break;
       vreg *r = R(i);
-      bind(r, REG_AT(i));
+      bind(ctx, r, REG_AT(i));
     }
   }
 
@@ -1051,43 +1099,53 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     vreg *rb = R(o->p3);
     switch (o->op) {
     case OMov: {
-      vreg *dst = R(o->p1);
-      vreg *src = R(o->p2);
-      mov(ctx, src, dst);
+      mov(ctx, ra, dst);
       break;
     }
     case OInt:
+      fprintf(ctx->dump_file, "OInt r%i, %i\n", o->p1, o->p2);
       load_const(ctx, fetch(ctx, R(o->p1), false), sizeof(int), o->p2);
       break;
     case OFloat:
       break;
     case OBool: {
+      fprintf(ctx->dump_file, "OBool r%i, %s\n", o->p1,
+              o->p2 ? "true" : "false");
       preg *dst = fetch(ctx, R(o->p1), false);
       emit_ari_imm(ctx, ADD, false, o->p2, REG_AT(ZR), dst);
       break;
     }
     case OBytes: {
+      fprintf(ctx->dump_file, "OBytes r%i, %i\n", o->p1, o->p2);
       intptr_t b = (intptr_t)(m->code->version >= 5
                                   ? m->code->bytes + m->code->bytes_pos[o->p2]
                                   : m->code->strings[o->p2]);
-      preg *dst = fetch(ctx, R(o->p1), false);
-      load_const(ctx, dst, sizeof(void *), b);
+      preg *pdst = fetch(ctx, dst, false);
+      load_const(ctx, pdst, sizeof(void *), b);
       break;
     }
     case OString: {
+      fprintf(ctx->dump_file, "OString r%i, %i\n", o->p1, o->p2);
       intptr_t s = (intptr_t)hl_get_ustring(m->code, o->p2);
-      preg *dst = fetch(ctx, R(o->p1), false);
-      load_const(ctx, dst, sizeof(vbyte *), s);
+      preg *pdst = fetch(ctx, dst, false);
+      load_const(ctx, pdst, sizeof(vbyte *), s);
       break;
     }
     case ONull: {
-      preg *dst = fetch(ctx, R(o->p1), false);
-      emit_log_shift_reg(ctx, ORR, true, REG_AT(ZR), REG_AT(ZR), dst, LSL, 0);
+      fprintf(ctx->dump_file, "ONull r%i\n", o->p1);
+      preg *pdst = fetch(ctx, dst, false);
+      emit_log_shift_reg(ctx, ORR, true, REG_AT(ZR), REG_AT(ZR), pdst, LSL, 0);
       break;
     }
 
     case OAdd:
-      emit_brk(ctx, o->op);
+      if (T_IS_FLOAT(ra->t->kind)) {
+        emit_brk(ctx, o->op);
+      } else {
+        emit_ari_shift_reg(ctx, ADD, false, fetch(ctx, ra, true),
+                           fetch(ctx, rb, true), fetch(ctx, dst, false), LSL,
+                           0);
+      }
       break;
     case OSub:
       emit_brk(ctx, o->op);
@@ -1148,22 +1206,22 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
 
     case OCall0:
-      call(ctx, R(o->p1), o->p2, 0, NULL);
+      call(ctx, dst, o->p2, 0, NULL);
       break;
     case OCall1:
-      call(ctx, R(o->p1), o->p2, 1, &o->p3);
+      call(ctx, dst, o->p2, 1, &o->p3);
       break;
     case OCall2: {
       int args[2] = {o->p3, (int)(intptr_t)o->extra};
-      call(ctx, R(o->p1), o->p2, 2, args);
+      call(ctx, dst, o->p2, 2, args);
     } break;
     case OCall3: {
       int args[3] = {o->p3, o->extra[0], o->extra[1]};
-      call(ctx, R(o->p1), o->p2, 3, args);
+      call(ctx, dst, o->p2, 3, args);
     } break;
     case OCall4: {
       int args[4] = {o->p3, o->extra[0], o->extra[1], o->extra[2]};
-      call(ctx, R(o->p1), o->p2, 4, args);
+      call(ctx, dst, o->p2, 4, args);
     } break;
     case OCallN:
       call(ctx, R(o->p1), o->p2, o->p3, o->extra);
@@ -1189,18 +1247,18 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
 
     case OGetGlobal: {
-      preg *dst = fetch(ctx, R(o->p1), false);
+      preg *pdst = fetch(ctx, dst, false);
       preg *tmp = alloc_register(ctx, RCPU);
       load_const(ctx, tmp, sizeof(void *),
                  (intptr_t)(m->globals_data + m->globals_indexes[o->p2]));
-      emit_ldr(ctx, dst->holds->t->kind, 0, dst, tmp);
+      emit_ldr(ctx, dst->t->kind, 0, pdst, tmp);
       break;
     }
     case OSetGlobal: {
       preg *tmp = alloc_register(ctx, RCPU);
       load_const(ctx, tmp, sizeof(void *),
                  (intptr_t)(m->globals_data + m->globals_indexes[o->p1]));
-      preg *src = fetch(ctx, R(o->p2), true);
+      preg *src = fetch(ctx, ra, true);
       emit_str(ctx, src->holds->t->kind, 0, false, false, src, tmp);
       break;
     }
@@ -1209,9 +1267,9 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       case HOBJ:
       case HSTRUCT: {
         hl_runtime_obj *rt = hl_get_obj_rt(ra->t);
-        preg *ra = fetch(ctx, R(o->p2), true);
-        preg *dst = fetch(ctx, R(o->p1), false);
-        emit_ldr(ctx, ra->holds->t->kind, rt->fields_indexes[o->p3], dst, ra);
+        preg *pa = fetch(ctx, ra, true);
+        preg *pdst = fetch(ctx, dst, false);
+        emit_ldr(ctx, ra->t->kind, rt->fields_indexes[o->p3], pdst, pa);
       } break;
       case HVIRTUAL:
         emit_brk(ctx, o->op);
@@ -1273,13 +1331,13 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     }; break;
     case OJNull: {
       vreg *r = R(o->p1);
-      emit_ari_imm(ctx, SUBS, false, 0, fetch(ctx, r, true), REG_AT(ZR));
+      emit_ari_imm(ctx, SUBS, true, 0, fetch(ctx, r, true), REG_AT(ZR));
       emit_cond_branch(ctx, EQ, 0);
       register_jump(ctx, BCOND, BUF_POS() - 4, opCount + 1 + o->p2);
     }; break;
     case OJNotNull: {
       vreg *r = R(o->p1);
-      emit_ari_imm(ctx, SUBS, false, 0, fetch(ctx, r, true), REG_AT(ZR));
+      emit_ari_imm(ctx, SUBS, true, 0, fetch(ctx, r, true), REG_AT(ZR));
       emit_cond_branch(ctx, NE, 0);
       register_jump(ctx, BCOND, BUF_POS() - 4, opCount + 1 + o->p2);
     }; break;
@@ -1385,14 +1443,15 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
     case ONullCheck: {
       vreg *r = R(o->p1);
-      emit_ari_imm(ctx, SUBS, false, 0, fetch(ctx, r, true), REG_AT(ZR));
+      emit_ari_imm(ctx, SUBS, true, 0, fetch(ctx, r, true), REG_AT(ZR));
       emit_cond_branch(ctx, NE, 0);
       size_t pos = BUF_POS() - 4;
       start_call(ctx);
       load_const(ctx, REG_AT(17), sizeof(void *), (int_val)hl_null_access);
       emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
       end_call(ctx, 0);
-      *(int *)(ctx->startBuf + pos) |= (((BUF_POS() - pos) & 0x7FFFF) << 5);
+      int jumpBy = (BUF_POS() - pos) / 4;
+      *(int *)(ctx->startBuf + pos) |= ((jumpBy & 0x7FFFF) << 5);
       break;
     }
     case OTrap:
@@ -1451,11 +1510,11 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     case OArraySize:
       emit_brk(ctx, o->op);
       break;
-    case OType:
-      assert(o->p2 < m->code->ntypes);
-      load_const(ctx, fetch(ctx, R(o->p1), false), sizeof(void *),
-                 (intptr_t)(m->code->types + o->p2));
+    case OType: {
+      intptr_t value = (size_t)(m->code->types + o->p2);
+      load_const(ctx, fetch(ctx, R(o->p1), false), sizeof(void *), value);
       break;
+    }
     case OGetType:
       emit_brk(ctx, o->op);
       break;
@@ -1607,13 +1666,10 @@ static void hl_jit_init_module(jit_ctx *ctx, hl_module *m) {
   if (m->code->hasdebug)
     ctx->debug =
         (hl_debug_infos *)malloc(sizeof(hl_debug_infos) * m->code->nfunctions);
-  printf("code types: %p\n", m->code->types);
-  printf("code strings: %p\n", m->code->strings);
-  printf("code bytes: %p\n", m->code->bytes);
-  // for (int i = 0;i < m->code->nfloats;i++) {
-  //     jit_buf(ctx);
-  //     *ctx->buf.d++ = m->code->floats[i];
-  // }
+  printf("code types: %p, count: %i\n", m->code->types, m->code->ntypes);
+  printf("code strings: %p, count: %i\n", m->code->strings, m->code->nstrings);
+  printf("code bytes: %p, count: %i\n", m->code->bytes, m->code->nbytes);
+  ctx->dump_file = fopen("code.dump", "w+");
 }
 
 void hl_jit_reset(jit_ctx *ctx, hl_module *m) {
@@ -1685,13 +1741,10 @@ void *hl_jit_code(jit_ctx *ctx, hl_module *m, int *codesize,
         intptr_t abs_pos =
             (intptr_t)previous
                 ->functions_ptrs[(previous->code->functions + old_idx)->findex];
-        offset = (int64_t)abs_pos - (int64_t)&code[c->pos];
+        offset = abs_pos - (intptr_t)&code[c->pos];
       } else {
         // relative
-        offset = ((intptr_t)fabs > (intptr_t)c->pos
-                      ? (intptr_t)fabs - (intptr_t)c->pos
-                      : -(int64_t)((intptr_t)c->pos - (intptr_t)fabs)) /
-                 4;
+        offset = (fabs > c->pos ? fabs - c->pos : -(c->pos - fabs)) / 4;
         assert((&code[c->pos] + (offset * 4)) < (code + size));
       }
     }
@@ -1712,9 +1765,6 @@ void *hl_jit_code(jit_ctx *ctx, hl_module *m, int *codesize,
   *debug = ctx->debug;
   printf("code: %p, size: %lu\n", code, size);
   fflush(stdout);
-  FILE *file = fopen("code.dump", "w+");
-  fwrite(code, 1, size, file);
-  fclose(file);
   return code;
 }
 
