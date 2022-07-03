@@ -69,9 +69,9 @@
   }
 
 typedef enum CpuOp {
-  #define OP(name) name,
-  #include "aarch64_ops.h"
-  #undef OP
+#define OP(name) name,
+#include "aarch64_ops.h"
+#undef OP
 } CpuOp;
 
 typedef enum FpuOp {
@@ -436,7 +436,7 @@ static void emit_barrier(jit_ctx *ctx, BarrierType type, BarrierOption opt) {
     op2 = 7;
     break;
   }
-  if(ctx->dump_file)
+  if (ctx->dump_file)
     fprintf(ctx->dump_file, "barrier %i, %i\n", CRm, op2);
   W(0xD5033000 | (CRm << 8) | (op2 << 5) | Rt);
 }
@@ -513,7 +513,7 @@ static void emit_data_proc_rrr(jit_ctx *ctx, CpuOp cop, bool is64, preg *m,
   default:
     ASSERT(cop);
   }
-  if(ctx->dump_file) {
+  if (ctx->dump_file) {
     fprintf(ctx->dump_file, "data_proc_rrr %i, %i, %i, %i\n", sf, S, opcode,
             n->id);
   }
@@ -570,7 +570,7 @@ static void emit_log_shift_reg(jit_ctx *ctx, CpuOp cop, bool is64, preg *m,
   default:
     ASSERT(cop);
   }
-  if(ctx->dump_file) {
+  if (ctx->dump_file) {
     fprintf(ctx->dump_file, "%s %i, %i, %i, %i, %i, %i,\n", op_to_string(cop),
             opc, N, m->id, n->id, d->id, shift);
   }
@@ -606,7 +606,7 @@ static void emit_ari_shift_reg(jit_ctx *ctx, CpuOp cop, bool is64, preg *m,
   default:
     ASSERT(cop);
   }
-  if(ctx->dump_file) {
+  if (ctx->dump_file) {
     fprintf(ctx->dump_file, "%s %i, %i, %i, %i, %i, %i,\n", op_to_string(cop),
             op, S, m->id, n->id, d->id, shift);
   }
@@ -753,7 +753,7 @@ static preg *alloc_register(jit_ctx *ctx, preg_kind kind) {
   int oldest_age = ctx->currentPos;
   for (int i = 0; i < count; i++) {
     preg *p = REG_AT(kind == RFPU ? VREG(i) : XREG(i));
-    if(i == 30 || i == 29 || i == 18 || i == 17 || i == 16) {
+    if (i == 30 || i == 29 || i == 18 || i == 17 || i == 16) {
       continue;
     }
     if (p->lock >= ctx->currentPos)
@@ -903,6 +903,7 @@ static void start_call(jit_ctx *ctx) {
 static void end_call(jit_ctx *ctx, int stack_size) {
   if (stack_size > 0)
     emit_ari_imm(ctx, ADD, true, stack_size, REG_AT(SP), REG_AT(SP));
+  emit_log_shift_reg(ctx, ORR, true, REG_AT(ZR), REG_AT(ZR), REG_AT(30), LSL, 0);
   ctx->calling = false;
 }
 // R30 is the link register
@@ -1011,7 +1012,8 @@ static void make_dyn_cast(jit_ctx *ctx, vreg *dst, vreg *v) {
 }
 
 int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
-  if(ctx->dump_file) fprintf(ctx->dump_file, "function %i\n", f->findex);
+  if (ctx->dump_file)
+    fprintf(ctx->dump_file, "function %i\n", f->findex);
   size_t codePos = BUF_POS();
 
   int nargs = f->type->fun->nargs;
@@ -1073,14 +1075,14 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
   ctx->functionPos = BUF_POS();
   assert(ctx->startBuf != NULL && ctx->bufSize != 0);
   emit_ari_imm(ctx, SUB, true, 8, REG_AT(SP), REG_AT(SP));
-  emit_str(ctx, HREF, 0, 0, 0, REG_AT(XREG(30)), REG_AT(SP));
+  emit_str(ctx, HREF, 0, false, false, REG_AT(XREG(30)), REG_AT(SP));
   emit_ari_imm(ctx, SUB, true, 8, REG_AT(SP), REG_AT(SP));
-  emit_str(ctx, HREF, 0, 0, 0, REG_AT(XREG(29)), REG_AT(SP));
+  emit_str(ctx, HREF, 0, false, false, REG_AT(XREG(29)), REG_AT(SP));
   // stp x29, x30, [sp, #-16]!
   // W(0xA9BF7BFD);
   // mov x29, sp
   emit_mov_rr(ctx, true, REG_AT(SP), REG_AT(29));
-  if (ctx->totalRegsSize)
+  if (ctx->totalRegsSize > 0)
     emit_ari_imm(ctx, SUB, true, ctx->totalRegsSize, REG_AT(SP), REG_AT(SP));
   {
     for (int i = 0; i < nargs; i++) {
@@ -1110,20 +1112,23 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
     }
     case OInt:
-      if(ctx->dump_file)fprintf(ctx->dump_file, "OInt r%i, %i\n", o->p1, o->p2);
+      if (ctx->dump_file)
+        fprintf(ctx->dump_file, "OInt r%i, %i\n", o->p1, o->p2);
       load_const(ctx, fetch(ctx, R(o->p1), false), sizeof(int), o->p2);
       break;
     case OFloat:
       break;
     case OBool: {
-      if(ctx->dump_file) fprintf(ctx->dump_file, "OBool r%i, %s\n", o->p1,
-              o->p2 ? "true" : "false");
+      if (ctx->dump_file)
+        fprintf(ctx->dump_file, "OBool r%i, %s\n", o->p1,
+                o->p2 ? "true" : "false");
       preg *dst = fetch(ctx, R(o->p1), false);
       emit_ari_imm(ctx, ADD, false, o->p2, REG_AT(ZR), dst);
       break;
     }
     case OBytes: {
-      if(ctx->dump_file)fprintf(ctx->dump_file, "OBytes r%i, %i\n", o->p1, o->p2);
+      if (ctx->dump_file)
+        fprintf(ctx->dump_file, "OBytes r%i, %i\n", o->p1, o->p2);
       intptr_t b = (intptr_t)(m->code->version >= 5
                                   ? m->code->bytes + m->code->bytes_pos[o->p2]
                                   : m->code->strings[o->p2]);
@@ -1132,14 +1137,16 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
     }
     case OString: {
-      if(ctx->dump_file)fprintf(ctx->dump_file, "OString r%i, %i\n", o->p1, o->p2);
+      if (ctx->dump_file)
+        fprintf(ctx->dump_file, "OString r%i, %i\n", o->p1, o->p2);
       intptr_t s = (intptr_t)hl_get_ustring(m->code, o->p2);
       preg *pdst = fetch(ctx, dst, false);
       load_const(ctx, pdst, sizeof(vbyte *), s);
       break;
     }
     case ONull: {
-      if(ctx->dump_file)fprintf(ctx->dump_file, "ONull r%i\n", o->p1);
+      if (ctx->dump_file)
+        fprintf(ctx->dump_file, "ONull r%i\n", o->p1);
       preg *pdst = fetch(ctx, dst, false);
       emit_log_shift_reg(ctx, ORR, true, REG_AT(ZR), REG_AT(ZR), pdst, LSL, 0);
       break;
@@ -1431,7 +1438,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     case OLabel:
       break;
     case ORet:
-      if (ctx->totalRegsSize) {
+      if (ctx->totalRegsSize > 0) {
         emit_ari_imm(ctx, ADD, true, ctx->totalRegsSize, REG_AT(SP),
                      REG_AT(SP));
       }
