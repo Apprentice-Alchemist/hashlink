@@ -791,7 +791,7 @@ static preg *fetch(jit_ctx *ctx, vreg *r, bool andLoad) {
     r->current = alloc_register(ctx, T_IS_FLOAT(r->t->kind) ? RFPU : RCPU);
     r->current->holds = r;
     if (andLoad)
-      emit_ldr(ctx, r->t->kind, r->stackPos, r->current, REG_AT(29));
+      emit_ldr(ctx, r->t->kind, r->stackPos, r->current, REG_AT(SP));
     return r->current;
   }
 }
@@ -801,22 +801,24 @@ static void load(jit_ctx *ctx, vreg *r, preg *into) {
     if (r->current != into)
       emit_mov_rr(ctx, T_IS_64(r->t->kind), r->current, into);
   } else {
-    emit_ldr(ctx, r->t->kind, r->stackPos, into, REG_AT(29));
+    emit_ldr(ctx, r->t->kind, r->stackPos, into, REG_AT(SP));
   }
 }
 
 static void bind(jit_ctx *ctx, vreg *r, preg *p) {
   if (r->current)
     r->current->holds = NULL;
+if(p->holds)
+	p->holds->current = NULL;
   p->holds = r;
   r->current = p;
-  scratch(ctx, p, false);
+//   scratch(ctx, p, false);
 }
 
 static void scratch(jit_ctx *ctx, preg *p, bool release) {
   if (p->holds != NULL) {
     emit_str(ctx, p->holds->t->kind, p->holds->stackPos, true, false, p,
-             REG_AT(29));
+             REG_AT(SP));
     if (release) {
       p->holds->current = NULL;
       p->holds = NULL;
@@ -1006,11 +1008,12 @@ static void *get_dyncast(hl_type *t) {
 
 static void make_dyn_cast(jit_ctx *ctx, vreg *dst, vreg *v) {
   start_call(ctx);
-  if (v->stackPos >= 0) {
-    emit_ari_imm(ctx, ADD, true, v->stackPos, REG_AT(29), REG_AT(0));
-  } else {
-    emit_ari_imm(ctx, SUB, true, -v->stackPos, REG_AT(29), REG_AT(0));
-  }
+//   load(ctx, v, REG_AT(0));
+//   if (v->stackPos >= 0) {
+    emit_ari_imm(ctx, ADD, true, v->stackPos, REG_AT(SP), REG_AT(0));
+//   } else {
+//     emit_ari_imm(ctx, SUB, true, -v->stackPos, REG_AT(29), REG_AT(0));
+//   }
 
   load_const(ctx, REG_AT(1), sizeof(hl_type *), (int_val)v->t);
   if (!T_IS_FLOAT(dst->t->kind)) {
@@ -1067,23 +1070,25 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     // args 1 to 7 go in registers
     if (i > 7) {
       // use existing stack storage
+	  TODO("args on stack");
       r->stackPos = (argsSize + sizeof(void *) * 2);
       argsSize += type_stack_size(r->t);
     } else {
       // make room in local vars
+      r->stackPos = size;
       size += r->size;
       size += hl_pad_size(size, r->t);
-      r->stackPos = -size;
       bind(ctx, r, REG_AT(i));
     }
   }
   for (int i = nargs; i < f->nregs; i++) {
     vreg *r = ctx->vregs + i;
+    r->stackPos = size;
     size += r->size;
     size += hl_pad_size(size, r->t); // align local vars
-    r->stackPos = -size;
   }
-  size += (-size) & 15; // align on 16 bytes
+  size = ((size / 16) + 1) * 16;
+//   size += (-size) & 15; // align on 16 bytes
   ctx->totalRegsSize = size;
 
   emit_ari_imm(ctx, SUB, true, 16, REG_AT(SP), REG_AT(SP));
@@ -1142,7 +1147,8 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
         fprintf(ctx->dump_file, "OBool r%i, %s\n", o->p1,
                 o->p2 ? "true" : "false");
       preg *dst = fetch(ctx, R(o->p1), false);
-      emit_ari_imm(ctx, ADD, false, o->p2, REG_AT(ZR), dst);
+	  emit_movw_imm(ctx, MOVZ, true, o->p2, 0, dst);
+    //   emit_ari_imm(ctx, ADD, true, o->p2, REG_AT(ZR), dst);
       break;
     }
     case OBytes: {
@@ -1480,8 +1486,12 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
 
     case OLabel:
       break;
-    case ORet:
-      if (ctx->totalRegsSize > 0) {
+    case ORet:{
+    	vreg *val = R(o->p1);
+		if(val->t->kind != HVOID) {
+			load(ctx, val, REG_AT(0));
+		}
+          if (ctx->totalRegsSize > 0) {
         emit_ari_imm(ctx, ADD, true, ctx->totalRegsSize, REG_AT(SP),
                      REG_AT(SP));
       }
@@ -1492,7 +1502,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       // ldp x29, x30, [sp], #16
       // W(0xA8C17BFD);
       emit_uncond_branch_reg(ctx, RET, REG_AT(30));
-      break;
+      break;}
     case OThrow:
       emit_brk(ctx, o->op);
       break;
