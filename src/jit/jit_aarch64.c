@@ -35,7 +35,7 @@
 #define REG_COUNT RCPU_COUNT + RFPU_COUNT + 1
 
 #define REG_AT(i) ctx->pregs + (i)
-#define R(i) ctx->vregs + i
+#define R(i) (ctx->vregs + i)
 
 #define BUF_POS() (intptr_t)((unsigned char *)ctx->buf - ctx->startBuf)
 
@@ -711,6 +711,9 @@ static void emit_ldr(jit_ctx *ctx, hl_type_kind type, int32_t offset, preg *r,
     opc = (s ? 1 : 0) << 1 | bits;
   }
   assert(opc != 0);
+  if (ctx->dump_file) {
+    fprintf(ctx->dump_file, "ldr");
+  }
   // struct {
   //   int offset:9;
   // } off = {0};
@@ -726,6 +729,10 @@ static void emit_str(jit_ctx *ctx, hl_type_kind type, int offset,
   uint32_t size = type_to_size(type);
   uint32_t V = (type == HF32 || type == HF64) ? 1 : 0;
   uint32_t opc = 0;
+
+  if (ctx->dump_file) {
+    fprintf(ctx->dump_file, "stur");
+  }
 
   if (true) {
     // emit STUR
@@ -777,6 +784,7 @@ static preg *alloc_register(jit_ctx *ctx, preg_kind kind) {
 }
 // <param name="andLoad">wether to load from the stack if needed</param>
 static preg *fetch(jit_ctx *ctx, vreg *r, bool andLoad) {
+  printf("ctx: %p, r: %p, andLoad: %i\n", ctx, r, andLoad);
   if (r->current)
     return r->current;
   else {
@@ -903,7 +911,8 @@ static void start_call(jit_ctx *ctx) {
 static void end_call(jit_ctx *ctx, int stack_size) {
   if (stack_size > 0)
     emit_ari_imm(ctx, ADD, true, stack_size, REG_AT(SP), REG_AT(SP));
-  emit_log_shift_reg(ctx, ORR, true, REG_AT(ZR), REG_AT(ZR), REG_AT(30), LSL, 0);
+  // emit_log_shift_reg(ctx, ORR, true, REG_AT(ZR), REG_AT(ZR), REG_AT(30), LSL,
+  // 0);
   ctx->calling = false;
 }
 // R30 is the link register
@@ -969,6 +978,7 @@ static void call_native_consts(jit_ctx *ctx, vreg *dst, intptr_t fn_adr,
   assert(arg_count < 7);
   for (int i = 0; i < arg_count; i++) {
     preg *p = REG_AT(i);
+    // printf(const char *restrict format, ...)
     load_const(ctx, p, sizeof(void *), args[i]);
   }
   load_const(ctx, REG_AT(17), sizeof(void *), fn_adr);
@@ -1014,6 +1024,9 @@ static void make_dyn_cast(jit_ctx *ctx, vreg *dst, vreg *v) {
 int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
   if (ctx->dump_file)
     fprintf(ctx->dump_file, "function %i\n", f->findex);
+  jit_buf(ctx);
+  ctx->functionPos = BUF_POS();
+  assert(ctx->startBuf != NULL && ctx->bufSize != 0);
   size_t codePos = BUF_POS();
 
   int nargs = f->type->fun->nargs;
@@ -1061,6 +1074,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       size += r->size;
       size += hl_pad_size(size, r->t);
       r->stackPos = -size;
+      bind(ctx, r, REG_AT(i));
     }
   }
   for (int i = nargs; i < f->nregs; i++) {
@@ -1071,12 +1085,10 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
   }
   size += (-size) & 15; // align on 16 bytes
   ctx->totalRegsSize = size;
-  jit_buf(ctx);
-  ctx->functionPos = BUF_POS();
-  assert(ctx->startBuf != NULL && ctx->bufSize != 0);
-  emit_ari_imm(ctx, SUB, true, 8, REG_AT(SP), REG_AT(SP));
-  emit_str(ctx, HREF, 0, false, false, REG_AT(XREG(30)), REG_AT(SP));
-  emit_ari_imm(ctx, SUB, true, 8, REG_AT(SP), REG_AT(SP));
+
+  emit_ari_imm(ctx, SUB, true, 16, REG_AT(SP), REG_AT(SP));
+  emit_str(ctx, HREF, 8, false, false, REG_AT(XREG(30)), REG_AT(SP));
+  //emit_ari_imm(ctx, SUB, true, 8, REG_AT(SP), REG_AT(SP));
   emit_str(ctx, HREF, 0, false, false, REG_AT(XREG(29)), REG_AT(SP));
   // stp x29, x30, [sp, #-16]!
   // W(0xA9BF7BFD);
@@ -1084,14 +1096,14 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
   emit_mov_rr(ctx, true, REG_AT(SP), REG_AT(29));
   if (ctx->totalRegsSize > 0)
     emit_ari_imm(ctx, SUB, true, ctx->totalRegsSize, REG_AT(SP), REG_AT(SP));
-  {
-    for (int i = 0; i < nargs; i++) {
-      if (i > 7)
-        break;
-      vreg *r = R(i);
-      bind(ctx, r, REG_AT(i));
-    }
-  }
+  // {
+  //   for (int i = 0; i < nargs; i++) {
+  //     if (i > 7)
+  //       break;
+  //     vreg *r = R(i);
+  //     bind(ctx, r, REG_AT(i));
+  //   }
+  // }
 
   if (ctx->m->code->hasdebug) {
     debug16 = (unsigned short *)malloc(sizeof(unsigned short) * (f->nops + 1));
@@ -1103,18 +1115,25 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     jit_buf(ctx);
     ctx->currentPos = opCount + 1;
     hl_opcode *o = &f->ops[opCount];
+    // assert(o->p1 < ctx->maxRegs);
     vreg *dst = R(o->p1);
-    vreg *ra = R(o->p2);
-    vreg *rb = R(o->p3);
+    // printf("p2: %i, max: %i, nregs: %i\n", o->p2, ctx->maxRegs, f->nregs);
+    // assert(o->p2 < ctx->maxRegs);
+    // vreg *ra = R(o->p2);
+    // assert(o->p3 < ctx->maxRegs);
+    // vreg *rb = R(o->p3);
+    // #define ra R(o->p2)
+    // #define rb R(o->p3)
     switch (o->op) {
     case OMov: {
-      mov(ctx, ra, dst);
+      mov(ctx, R(o->p2), dst);
       break;
     }
     case OInt:
       if (ctx->dump_file)
         fprintf(ctx->dump_file, "OInt r%i, %i\n", o->p1, o->p2);
-      load_const(ctx, fetch(ctx, R(o->p1), false), sizeof(int), o->p2);
+      load_const(ctx, fetch(ctx, R(o->p1), false), sizeof(int),
+                 m->code->ints[o->p2]);
       break;
     case OFloat:
       break;
@@ -1132,6 +1151,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       intptr_t b = (intptr_t)(m->code->version >= 5
                                   ? m->code->bytes + m->code->bytes_pos[o->p2]
                                   : m->code->strings[o->p2]);
+      // printf("bytes: %p", (void *)b);
       preg *pdst = fetch(ctx, dst, false);
       load_const(ctx, pdst, sizeof(void *), b);
       break;
@@ -1140,6 +1160,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       if (ctx->dump_file)
         fprintf(ctx->dump_file, "OString r%i, %i\n", o->p1, o->p2);
       intptr_t s = (intptr_t)hl_get_ustring(m->code, o->p2);
+      // printf("string: %p", (void *)s);
       preg *pdst = fetch(ctx, dst, false);
       load_const(ctx, pdst, sizeof(vbyte *), s);
       break;
@@ -1153,12 +1174,12 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     }
 
     case OAdd:
-      if (T_IS_FLOAT(ra->t->kind)) {
+      if (T_IS_FLOAT(R(o->p2)->t->kind)) {
         emit_brk(ctx, o->op);
       } else {
-        emit_ari_shift_reg(ctx, ADD, false, fetch(ctx, ra, true),
-                           fetch(ctx, rb, true), fetch(ctx, dst, false), LSL,
-                           0);
+        emit_ari_shift_reg(ctx, ADD, false, fetch(ctx, R(o->p2), true),
+                           fetch(ctx, R(o->p3), true), fetch(ctx, dst, false),
+                           LSL, 0);
       }
       break;
     case OSub:
@@ -1199,23 +1220,25 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
 
     case ONeg:
-      if (T_IS_FLOAT(ra->t->kind)) {
+      if (T_IS_FLOAT(R(o->p2)->t->kind)) {
         emit_brk(ctx, o->op);
       } else {
-        emit_ari_shift_reg(ctx, SUB, ra->t->kind == HI32, fetch(ctx, ra, true),
-                           REG_AT(ZR), fetch(ctx, dst, false), LSL, 0);
+        emit_ari_shift_reg(ctx, SUB, R(o->p2)->t->kind == HI32,
+                           fetch(ctx, R(o->p2), true), REG_AT(ZR),
+                           fetch(ctx, dst, false), LSL, 0);
       }
       break;
     case ONot:
-      emit_log_shift_reg(ctx, ORN, ra->t->kind == HI32, fetch(ctx, ra, true),
-                         REG_AT(ZR), fetch(ctx, dst, false), LSL, 0);
+      emit_log_shift_reg(ctx, ORN, R(o->p2)->t->kind == HI32,
+                         fetch(ctx, R(o->p2), true), REG_AT(ZR),
+                         fetch(ctx, dst, false), LSL, 0);
       break;
     case OIncr:
-      emit_ari_imm(ctx, ADD, false, 1, fetch(ctx, ra, true),
+      emit_ari_imm(ctx, ADD, false, 1, fetch(ctx, dst, true),
                    fetch(ctx, dst, false));
       break;
     case ODecr:
-      emit_ari_imm(ctx, SUB, false, 1, fetch(ctx, ra, true),
+      emit_ari_imm(ctx, SUB, false, 1, fetch(ctx, dst, true),
                    fetch(ctx, dst, false));
       break;
 
@@ -1272,18 +1295,18 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       preg *tmp = alloc_register(ctx, RCPU);
       load_const(ctx, tmp, sizeof(void *),
                  (intptr_t)(m->globals_data + m->globals_indexes[o->p1]));
-      preg *src = fetch(ctx, ra, true);
+      preg *src = fetch(ctx, R(o->p2), true);
       emit_str(ctx, src->holds->t->kind, 0, false, false, src, tmp);
       break;
     }
     case OField: {
-      switch (ra->t->kind) {
+      switch (R(o->p2)->t->kind) {
       case HOBJ:
       case HSTRUCT: {
-        hl_runtime_obj *rt = hl_get_obj_rt(ra->t);
-        preg *pa = fetch(ctx, ra, true);
+        hl_runtime_obj *rt = hl_get_obj_rt(R(o->p2)->t);
+        preg *pa = fetch(ctx, R(o->p2), true);
         preg *pdst = fetch(ctx, dst, false);
-        emit_ldr(ctx, ra->t->kind, rt->fields_indexes[o->p3], pdst, pa);
+        emit_ldr(ctx, R(o->p2)->t->kind, rt->fields_indexes[o->p3], pdst, pa);
       } break;
       case HVIRTUAL:
         emit_brk(ctx, o->op);
@@ -1302,10 +1325,10 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       case HOBJ:
       case HSTRUCT: {
         hl_runtime_obj *rt = hl_get_obj_rt(obj->t);
-        preg *ra = fetch(ctx, R(o->p2), true);
-        preg *src = fetch(ctx, R(o->p1), true);
-        emit_str(ctx, ra->holds->t->kind, rt->fields_indexes[o->p3], false,
-                 false, src, ra);
+        preg *val = fetch(ctx, R(o->p3), true);
+        preg *robj = fetch(ctx, obj, true);
+        emit_str(ctx, val->holds->t->kind, rt->fields_indexes[o->p2], false,
+                 false, val, robj);
       } break;
       case HVIRTUAL:
         emit_brk(ctx, o->op);
@@ -1318,12 +1341,32 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       }
       break;
     }
-    case OGetThis:
-      emit_brk(ctx, o->op);
-      break;
-    case OSetThis:
-      emit_brk(ctx, o->op);
-      break;
+    case OGetThis: {
+		vreg *this = R(0);
+		hl_runtime_obj *rt = hl_get_obj_rt(this->t);
+		preg *pthis = fetch(ctx, this, true);
+		if(dst->t->kind == HSTRUCT) {
+        hl_type *ft = hl_obj_field_fetch(this->t, o->p2)->t;
+        	if( ft->kind == HPACKED ) {
+				TODO("packed struct");
+        		// preg *r = alloc_reg(ctx,RCPU);
+        		// op64(ctx,LEA,r,pmem(&p,(CpuReg)rr->id,rt->fields_indexes[o->p2]));
+        		// store(ctx,dst,r,true);
+        		// break;
+        	}
+        }
+		preg *dst = fetch(ctx, R(o->p1), true);
+		emit_ldr(ctx, dst->holds->t->kind, rt->fields_indexes[o->p2], pthis, dst);
+		break;
+	}
+	case OSetThis: {
+			vreg *this = R(0);
+			hl_runtime_obj *rt = hl_get_obj_rt(this->t);
+			preg *pthis = fetch(ctx, this, true);
+			preg *val = fetch(ctx, R(o->p2), true);
+			emit_str(ctx, val->holds->t->kind, rt->fields_indexes[o->p1],
+						false, false, val, pthis);
+	} break;
     case ODynGet:
       emit_brk(ctx, o->op);
       break;
@@ -1443,9 +1486,9 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
                      REG_AT(SP));
       }
       emit_ldr(ctx, HREF, 0, REG_AT(29), REG_AT(SP));
-      emit_ari_imm(ctx, ADD, true, 8, REG_AT(SP), REG_AT(SP));
-      emit_ldr(ctx, HREF, 0, REG_AT(30), REG_AT(SP));
-      emit_ari_imm(ctx, ADD, true, 8, REG_AT(SP), REG_AT(SP));
+    //   emit_ari_imm(ctx, ADD, true, 8, REG_AT(SP), REG_AT(SP));
+      emit_ldr(ctx, HREF, 8, REG_AT(30), REG_AT(SP));
+      emit_ari_imm(ctx, ADD, true, 16, REG_AT(SP), REG_AT(SP));
       // ldp x29, x30, [sp], #16
       // W(0xA8C17BFD);
       emit_uncond_branch_reg(ctx, RET, REG_AT(30));
@@ -1464,10 +1507,11 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       emit_ari_imm(ctx, SUBS, true, 0, fetch(ctx, r, true), REG_AT(ZR));
       emit_cond_branch(ctx, NE, 0);
       size_t pos = BUF_POS() - 4;
-      start_call(ctx);
-      load_const(ctx, REG_AT(17), sizeof(void *), (int_val)hl_null_access);
-      emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
-      end_call(ctx, 0);
+      emit_brk(ctx, 4);
+      // start_call(ctx);
+      // load_const(ctx, REG_AT(17), sizeof(void *), (int_val)hl_null_access);
+      // emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
+      // end_call(ctx, 0);
       int jumpBy = (BUF_POS() - pos) / 4;
       *(int *)(ctx->startBuf + pos) |= ((jumpBy & 0x7FFFF) << 5);
       break;
@@ -1521,6 +1565,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       default:
         ERROR("Expect HOBJ, HSTRUCT or HVIRTUAL");
       }
+      printf("alloc type: %p\n", dst->t);
       call_native_consts(ctx, dst, (intptr_t)allocFun, 1,
                          (intptr_t[]){(intptr_t)dst->t});
       break;
@@ -1530,6 +1575,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
     case OType: {
       intptr_t value = (size_t)(m->code->types + o->p2);
+      // printf("type: %p", (void*)value);
       load_const(ctx, fetch(ctx, R(o->p1), false), sizeof(void *), value);
       break;
     }
@@ -1602,10 +1648,10 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       int32_t offset;
       switch (j->op) {
       case B:
-        offset = (((ctx->opsPos[j->target] - (j->pos + 4)) / 4) & 0x3FFFFFF);
+        offset = (((ctx->opsPos[j->target] - (j->pos /*+ 4*/)) / 4) & 0x3FFFFFF);
         break;
       case BCOND:
-        offset = (((ctx->opsPos[j->target] - (j->pos + 4)) / 4) & 0x7FFFF) << 5;
+        offset = (((ctx->opsPos[j->target] - (j->pos /*+ 4*/)) / 4) & 0x7FFFF) << 5;
         break;
       default:
         ERROR("Expected a branch.");
