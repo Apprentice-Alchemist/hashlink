@@ -784,7 +784,7 @@ static preg *alloc_register(jit_ctx *ctx, preg_kind kind) {
 }
 // <param name="andLoad">wether to load from the stack if needed</param>
 static preg *fetch(jit_ctx *ctx, vreg *r, bool andLoad) {
-  printf("ctx: %p, r: %p, andLoad: %i\n", ctx, r, andLoad);
+//   printf("ctx: %p, r: %p, andLoad: %i\n", ctx, r, andLoad);
   if (r->current)
     return r->current;
   else {
@@ -925,7 +925,7 @@ static void end_call(jit_ctx *ctx, int stack_size) {
 // R16 is IPO, a intra-procedure-call temporary register
 // R9...R15 are temporary registers, caller saved
 // R8 i the indirect result location register
-// R0...R7 are the paramter registers, with r0 being the result register too
+// R0...R7 are the parameter registers, with r0 being the result register too
 // for floating point registers, the bottom 64 bits of v8...v15 should be saved
 static void call(jit_ctx *ctx, vreg *dst, int findex, int arg_count,
                  int *args) {
@@ -1018,9 +1018,14 @@ static void make_dyn_cast(jit_ctx *ctx, vreg *dst, vreg *v) {
   load_const(ctx, REG_AT(1), sizeof(hl_type *), (int_val)v->t);
   if (!T_IS_FLOAT(dst->t->kind)) {
     load_const(ctx, REG_AT(2), sizeof(hl_type *), (int_val)dst->t);
+  } else {
+	emit_brk(ctx, 0);
   }
   load_const(ctx, REG_AT(17), sizeof(void *), (int_val)get_dyncast(dst->t));
   emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
+  if(dst != NULL && dst->t->kind != HVOID) {
+	bind(ctx, dst, REG_AT(0));
+  }
   end_call(ctx, 0);
 }
 
@@ -1575,7 +1580,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       default:
         ERROR("Expect HOBJ, HSTRUCT or HVIRTUAL");
       }
-      printf("alloc type: %p\n", dst->t);
+    //   printf("alloc type: %p\n", dst->t);
       call_native_consts(ctx, dst, (intptr_t)allocFun, 1,
                          (intptr_t[]){(intptr_t)dst->t});
       break;
@@ -1740,9 +1745,9 @@ static void hl_jit_init_module(jit_ctx *ctx, hl_module *m) {
   if (m->code->hasdebug)
     ctx->debug =
         (hl_debug_infos *)malloc(sizeof(hl_debug_infos) * m->code->nfunctions);
-  printf("code types: %p, count: %i\n", m->code->types, m->code->ntypes);
-  printf("code strings: %p, count: %i\n", m->code->strings, m->code->nstrings);
-  printf("code bytes: %p, count: %i\n", m->code->bytes, m->code->nbytes);
+//   printf("code types: %p, count: %i\n", m->code->types, m->code->ntypes);
+//   printf("code strings: %p, count: %i\n", m->code->strings, m->code->nstrings);
+//   printf("code bytes: %p, count: %i\n", m->code->bytes, m->code->nbytes);
   ctx->dump_file = fopen("code.dump", "w+");
 }
 
@@ -1820,6 +1825,7 @@ void *hl_jit_code(jit_ctx *ctx, hl_module *m, int *codesize,
         // relative
         offset = (fabs > c->pos ? fabs - c->pos : -(c->pos - fabs)) / 4;
         assert((&code[c->pos] + (offset * 4)) < (code + size));
+        assert((&code[c->pos] + (offset * 4)) > code);
       }
     }
     if (offset >= (128 * (1 << 20)) || offset <= -(128 * (1 << 20))) {
@@ -1827,7 +1833,7 @@ void *hl_jit_code(jit_ctx *ctx, hl_module *m, int *codesize,
            "MB\noffset %.5f MB",
            (double)offset / (double)(1 << 20));
     }
-    code[c->pos] |= (offset & 0x03FFFFFF);
+    *((int*)&code[c->pos]) |= ((offset) & 0x03FFFFFF);
     c = c->next;
   }
 #ifdef __APPLE__
@@ -1837,7 +1843,7 @@ void *hl_jit_code(jit_ctx *ctx, hl_module *m, int *codesize,
   clear_cache(code, size);
   *codesize = size;
   *debug = ctx->debug;
-  printf("code: %p, size: %lu\n", code, size);
+//   printf("code: %p, size: %lu\n", code, size);
   fflush(stdout);
   return code;
 }
