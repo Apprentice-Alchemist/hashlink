@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <hlmodule.h>
 #include <math.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -480,7 +481,27 @@ static void emit_uncond_branch_imm(jit_ctx *ctx, CpuOp cop, uint64_t imm) {
 // static void emit_comp_and_branch_imm(jit_ctx *ctx) {}
 // static void emit_test_and_branch_imm(jit_ctx *ctx) {}
 
-static void emit_data_proc_rrr(jit_ctx *ctx, CpuOp cop, bool is64, preg *m,
+static void emit_data_proc_rrr(jit_ctx *ctx, CpuOp cop, bool is64, preg *dst, preg *n, preg *m, preg *a) {
+	uint32_t sf = is64 ? 1 : 0;
+	uint32_t op54;
+	uint32_t op31;
+	uint32_t o0;
+	switch (cop) {
+		case MADD:
+			op54 = op31 = 0;
+			o0 = 0;
+			break;
+		case MSUB:
+            op54 = op31 = 0;
+            o0 = 1;
+			break;
+		default:
+			ASSERT(cop);
+    }
+	W(0x1B000000 | (sf << 31) | (op54 << 29) | (op31 << 21) | (m->id << 16) | (o0 << 15) | (a->id << 10) | (n->id << 5) | dst->id);
+}
+
+static void emit_data_proc_rr(jit_ctx *ctx, CpuOp cop, bool is64, preg *m,
                                preg *n, preg *d) {
   uint32_t sf = is64 ? 1 : 0;
   uint32_t S;
@@ -514,13 +535,13 @@ static void emit_data_proc_rrr(jit_ctx *ctx, CpuOp cop, bool is64, preg *m,
     ASSERT(cop);
   }
   if (ctx->dump_file) {
-    fprintf(ctx->dump_file, "data_proc_rrr %i, %i, %i, %i\n", sf, S, opcode,
+    fprintf(ctx->dump_file, "data_proc_rr %i, %i, %i, %i\n", sf, S, opcode,
             n->id);
   }
   W(0x1AC00000 | (sf << 31) | (S << 29) | ((m->id & 0x1F) << 16) |
     (opcode << 10) | ((n->id & 0x1F) << 5) | (d->id & 0x1F));
 }
-static void emit_data_proc_rr(jit_ctx *ctx, CpuOp cop, bool is64) {
+static void emit_data_proc_r(jit_ctx *ctx, CpuOp cop, bool is64) {
   TODO("todo");
 }
 
@@ -614,6 +635,8 @@ static void emit_ari_shift_reg(jit_ctx *ctx, CpuOp cop, bool is64, preg *m,
     (m->id << 16) | (imm << 10) | (n->id << 5) | d->id);
 }
 
+// static void emit_mul_div(jit_ctx *ctx, )
+
 static void emit_ari_ext_reg(jit_ctx *ctx, CpuOp cop, bool is64) {
   TODO("todo");
 }
@@ -686,8 +709,8 @@ static uint32_t type_to_size(hl_type_kind t) {
   }
 }
 
-static void emit_ldr(jit_ctx *ctx, hl_type_kind type, int32_t offset, preg *r,
-                     preg *d) {
+static void emit_ldr(jit_ctx *ctx, hl_type_kind type, int32_t offset, preg *d,
+                     preg *r) {
   if (type == HVOID)
     return;
   uint32_t size = type_to_size(type);
@@ -719,7 +742,16 @@ static void emit_ldr(jit_ctx *ctx, hl_type_kind type, int32_t offset, preg *r,
   // } off = {0};
   // off.offset = offset;
   W(0x38000000 | (size << 30) | (V << 26) | (opc << 22) |
-    ((offset & 0x1FF) << 12) | (d->id << 5) | (r->id));
+    ((offset & 0x1FF) << 12) | (r->id << 5) | (d->id));
+}
+
+static void emit_ldr_r(jit_ctx *ctx, hl_type_kind type, preg *d, preg *r, preg *off) {
+  uint32_t size = type_to_size(type);
+  uint32_t V = 0;
+  uint32_t opc = 1;
+  uint32_t option = 3; // LSL
+  uint32_t S = 0;
+  W(0x38200800 | (size << 30) | (V << 26) | (opc << 22) | (off->id << 16) | (option << 13) | (S << 12) | (r->id << 5) | (d->id));
 }
 
 static void emit_str(jit_ctx *ctx, hl_type_kind type, int offset,
@@ -826,6 +858,12 @@ static void scratch(jit_ctx *ctx, preg *p, bool release) {
   }
 }
 
+static void vscratch(jit_ctx *ctx, vreg *v) {
+	if(v->current != NULL) {
+		scratch(ctx, v->current, true);
+	}
+}
+
 static void unbind(preg *p) {
   if (p->holds) {
     p->holds->current = NULL;
@@ -848,7 +886,7 @@ static void mov(jit_ctx *ctx, vreg *src, vreg *dst) {
     emit_mov_rr(ctx, src->size == 8, s, dst->current);
   } else {
     emit_str(ctx, src->t->kind, dst->stackPos, false, false, src->current,
-             REG_AT(29));
+             REG_AT(SP));
   }
 }
 
@@ -861,6 +899,21 @@ static void register_jump(jit_ctx *ctx, CpuOp op, size_t pos, int target) {
   ctx->jumps = j;
   if (target != 0 && ctx->opsPos[target] == 0)
     ctx->opsPos[target] = -1;
+}
+
+static void patch_jump(jit_ctx *ctx, CpuOp op, intptr_t jump_pos, int target_pos) {
+  int32_t offset;
+  switch (op) {
+  case B:
+    offset = (((target_pos - jump_pos) / 4) & 0x3FFFFFF);
+    break;
+  case BCOND:
+    offset = (((target_pos - jump_pos) / 4) & 0x7FFFF) << 5;
+    break;
+  default:
+    ERROR("Expected a branch.");
+  }
+  *(uint32_t *)(ctx->startBuf + jump_pos) |= offset;
 }
 
 static uint32_t pass_parameters(jit_ctx *ctx, int arg_count, int *args) {
@@ -973,6 +1026,16 @@ static void call_reg(jit_ctx *ctx, vreg *dst, preg *fn_adr, int arg_count,
   end_call(ctx, stack_size);
 }
 
+static void call_native_regs(jit_ctx *ctx, vreg *dst, intptr_t fn_adr, int arg_count, int*args) {
+  start_call(ctx);
+  uint32_t stack_size = pass_parameters(ctx, arg_count, args);
+  load_const(ctx, REG_AT(17), sizeof(void *), fn_adr);
+  emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
+  if (dst && dst->t->kind != HVOID)
+    bind(ctx, dst, REG_AT(0));
+  end_call(ctx, stack_size);
+}
+
 static void call_native_consts(jit_ctx *ctx, vreg *dst, intptr_t fn_adr,
                                int arg_count, intptr_t *args) {
   start_call(ctx);
@@ -1006,6 +1069,38 @@ static void *get_dyncast(hl_type *t) {
   }
 }
 
+static void *get_dynset(hl_type *t) {
+  switch (t->kind) {
+  case HF32:
+    return hl_dyn_setf;
+  case HF64:
+    return hl_dyn_setd;
+  case HI32:
+  case HUI16:
+  case HUI8:
+  case HBOOL:
+    return hl_dyn_seti;
+  default:
+    return hl_dyn_setp;
+  }
+}
+
+static void *get_dynget(hl_type *t) {
+  switch (t->kind) {
+  case HF32:
+    return hl_dyn_getf;
+  case HF64:
+    return hl_dyn_getd;
+  case HI32:
+  case HUI16:
+  case HUI8:
+  case HBOOL:
+    return hl_dyn_geti;
+  default:
+    return hl_dyn_getp;
+  }
+}
+
 static void make_dyn_cast(jit_ctx *ctx, vreg *dst, vreg *v) {
   start_call(ctx);
 //   load(ctx, v, REG_AT(0));
@@ -1033,6 +1128,9 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
   if (ctx->dump_file)
     fprintf(ctx->dump_file, "function %i\n", f->findex);
   jit_buf(ctx);
+  if(BUF_POS() == 0) {
+    W(0); // ensure we never run into a function ptr equal to 0 in the code for calling functions
+  }
   ctx->functionPos = BUF_POS();
   assert(ctx->startBuf != NULL && ctx->bufSize != 0);
   size_t codePos = BUF_POS();
@@ -1296,10 +1394,10 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
 
     case OGetGlobal: {
       preg *pdst = fetch(ctx, dst, false);
-      preg *tmp = alloc_register(ctx, RCPU);
-      load_const(ctx, tmp, sizeof(void *),
+      // preg *tmp = alloc_register(ctx, RCPU);
+      load_const(ctx, pdst, sizeof(void *),
                  (intptr_t)(m->globals_data + m->globals_indexes[o->p2]));
-      emit_ldr(ctx, dst->t->kind, 0, pdst, tmp);
+      emit_ldr(ctx, dst->t->kind, 0, pdst, pdst);
       break;
     }
     case OSetGlobal: {
@@ -1367,7 +1465,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
         	}
         }
 		preg *dst = fetch(ctx, R(o->p1), true);
-		emit_ldr(ctx, dst->holds->t->kind, rt->fields_indexes[o->p2], pthis, dst);
+		emit_ldr(ctx, dst->holds->t->kind, rt->fields_indexes[o->p2], dst, pthis);
 		break;
 	}
 	case OSetThis: {
@@ -1466,10 +1564,34 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       emit_uncond_branch_imm(ctx, B, 0);
       register_jump(ctx, B, BUF_POS() - 4, opCount + 1 + o->p1);
       break;
-
-    case OToDyn:
-      emit_brk(ctx, o->op);
+    case OToDyn:{
+      vreg *src = R(o->p2);
+      vreg *dst = R(o->p1);
+      if( src->t->kind == HBOOL ) {
+        call_native_regs(ctx, dst, (intptr_t)hl_alloc_dynbool, 1, &o->p2);
+			} else {
+				int_val rt = (int_val)src->t;
+				size_t jskip = 0;
+				if( hl_is_ptr(src->t) ) {
+          emit_ari_imm(ctx, SUBS, true, 0, fetch(ctx, src, true), REG_AT(ZR));
+          size_t jnz = BUF_POS();
+          emit_cond_branch(ctx, NE, 0);
+          scratch(ctx, REG_AT(0), true);
+          emit_log_shift_reg(ctx, ORR, true, REG_AT(ZR), REG_AT(ZR), REG_AT(0), LSL,
+                             0);
+          jskip = BUF_POS();
+          emit_uncond_branch_imm(ctx, B, 0);
+          patch_jump(ctx, BCOND, jnz, BUF_POS());
+				}
+				call_native_consts(ctx, dst, (intptr_t)hl_alloc_dynamic, 1, &rt);
+        emit_str(ctx, src->t->kind, 8, false, false,
+                                         fetch(ctx, src, true),
+                                         fetch(ctx, src, true));
+        if( hl_is_ptr(src->t) ) patch_jump(ctx,B, jskip, BUF_POS());
+        // dst should already have been bound to x0 by call_native_consts
+			}
       break;
+      }
     case OToSFloat:
       emit_brk(ctx, o->op);
       break;
@@ -1522,10 +1644,10 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       emit_ari_imm(ctx, SUBS, true, 0, fetch(ctx, r, true), REG_AT(ZR));
       emit_cond_branch(ctx, NE, 0);
       size_t pos = BUF_POS() - 4;
-      emit_brk(ctx, 4);
-      // start_call(ctx);
-      // load_const(ctx, REG_AT(17), sizeof(void *), (int_val)hl_null_access);
-      // emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
+	  emit_brk(ctx, 4);
+    //   start_call(ctx);
+    //   load_const(ctx, REG_AT(17), sizeof(void *), (int_val)hl_null_access);
+    //   emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
       // end_call(ctx, 0);
       int jumpBy = (BUF_POS() - pos) / 4;
       *(int *)(ctx->startBuf + pos) |= ((jumpBy & 0x7FFFF) << 5);
@@ -1548,7 +1670,17 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       emit_brk(ctx, o->op);
       break;
     case OGetArray:
-      emit_brk(ctx, o->op);
+    {
+		preg *dst = fetch(ctx, R(o->p1), false);
+		preg *a = fetch(ctx, R(o->p2), true);
+		preg *offset = fetch(ctx, R(o->p3), true);
+		preg *tmp = alloc_register(ctx, RCPU);
+		load_const(ctx, tmp, 4, hl_type_size(dst->holds->t));
+		// reuse dst instead of allocating a second tmp register
+		load_const(ctx, dst, 4, sizeof(varray));
+		emit_data_proc_rrr(ctx, MADD, true, tmp, offset, tmp, dst);
+		emit_ldr_r(ctx, dst->holds->t->kind, dst, a, tmp);
+	  }
       break;
     case OSetI8:
       emit_brk(ctx, o->op);
@@ -1585,9 +1717,12 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
                          (intptr_t[]){(intptr_t)dst->t});
       break;
     }
-    case OArraySize:
-      emit_brk(ctx, o->op);
+    case OArraySize:{
+      preg *dst = fetch(ctx, R(o->p1), false);
+      emit_ldr(ctx, dst->holds->t->kind, HL_WSIZE * 2,
+               dst, fetch(ctx, R(o->p2), true));
       break;
+	}
     case OType: {
       intptr_t value = (size_t)(m->code->types + o->p2);
       // printf("type: %p", (void*)value);
@@ -1601,12 +1736,23 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       emit_brk(ctx, o->op);
       break;
 
-    case ORef:
-      emit_brk(ctx, o->op);
+    case ORef:{
+      vreg *a = R(o->p2);
+	  vscratch(ctx, R(o->p2));
+      if (a->stackPos > 0) {
+		emit_ari_imm(ctx, ADD, true, a->stackPos, REG_AT(SP), fetch(ctx, R(o->p1), false));
+	  } else {
+		TODO("ref stack argument")
+	  }
       break;
-    case OUnref:
-      emit_brk(ctx, o->op);
+	  }
+    case OUnref:{
+      vreg *dst = R(o->p1);
+      vreg *ref = R(o->p2);
+      emit_ldr(ctx, dst->t->kind, 0, fetch(ctx, dst, false),
+               fetch(ctx, ref, true));
       break;
+	}
     case OSetref:
       emit_brk(ctx, o->op);
       break;
@@ -1693,6 +1839,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
   }
   // reset tmp allocator
   hl_free(&ctx->falloc);
+  // assert(codePos != 0);
   return codePos;
 }
 
@@ -1749,6 +1896,11 @@ static void hl_jit_init_module(jit_ctx *ctx, hl_module *m) {
 //   printf("code strings: %p, count: %i\n", m->code->strings, m->code->nstrings);
 //   printf("code bytes: %p, count: %i\n", m->code->bytes, m->code->nbytes);
   ctx->dump_file = fopen("code.dump", "w+");
+  // jit_buf(ctx);
+  // W(0);
+  // W(0);
+  // W(0);
+  // W(0);
 }
 
 void hl_jit_reset(jit_ctx *ctx, hl_module *m) {
