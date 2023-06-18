@@ -481,28 +481,30 @@ static void emit_uncond_branch_imm(jit_ctx *ctx, CpuOp cop, uint64_t imm) {
 // static void emit_comp_and_branch_imm(jit_ctx *ctx) {}
 // static void emit_test_and_branch_imm(jit_ctx *ctx) {}
 
-static void emit_data_proc_rrr(jit_ctx *ctx, CpuOp cop, bool is64, preg *dst, preg *n, preg *m, preg *a) {
-	uint32_t sf = is64 ? 1 : 0;
-	uint32_t op54;
-	uint32_t op31;
-	uint32_t o0;
-	switch (cop) {
-		case MADD:
-			op54 = op31 = 0;
-			o0 = 0;
-			break;
-		case MSUB:
-            op54 = op31 = 0;
-            o0 = 1;
-			break;
-		default:
-			ASSERT(cop);
-    }
-	W(0x1B000000 | (sf << 31) | (op54 << 29) | (op31 << 21) | (m->id << 16) | (o0 << 15) | (a->id << 10) | (n->id << 5) | dst->id);
+static void emit_data_proc_rrr(jit_ctx *ctx, CpuOp cop, bool is64, preg *dst,
+                               preg *n, preg *m, preg *a) {
+  uint32_t sf = is64 ? 1 : 0;
+  uint32_t op54;
+  uint32_t op31;
+  uint32_t o0;
+  switch (cop) {
+  case MADD:
+    op54 = op31 = 0;
+    o0 = 0;
+    break;
+  case MSUB:
+    op54 = op31 = 0;
+    o0 = 1;
+    break;
+  default:
+    ASSERT(cop);
+  }
+  W(0x1B000000 | (sf << 31) | (op54 << 29) | (op31 << 21) | (m->id << 16) |
+    (o0 << 15) | (a->id << 10) | (n->id << 5) | dst->id);
 }
 
 static void emit_data_proc_rr(jit_ctx *ctx, CpuOp cop, bool is64, preg *m,
-                               preg *n, preg *d) {
+                              preg *n, preg *d) {
   uint32_t sf = is64 ? 1 : 0;
   uint32_t S;
   uint32_t opcode;
@@ -745,13 +747,15 @@ static void emit_ldr(jit_ctx *ctx, hl_type_kind type, int32_t offset, preg *d,
     ((offset & 0x1FF) << 12) | (r->id << 5) | (d->id));
 }
 
-static void emit_ldr_r(jit_ctx *ctx, hl_type_kind type, preg *d, preg *r, preg *off) {
+static void emit_ldr_r(jit_ctx *ctx, hl_type_kind type, preg *d, preg *r,
+                       preg *off) {
   uint32_t size = type_to_size(type);
   uint32_t V = 0;
   uint32_t opc = 1;
   uint32_t option = 3; // LSL
   uint32_t S = 0;
-  W(0x38200800 | (size << 30) | (V << 26) | (opc << 22) | (off->id << 16) | (option << 13) | (S << 12) | (r->id << 5) | (d->id));
+  W(0x38200800 | (size << 30) | (V << 26) | (opc << 22) | (off->id << 16) |
+    (option << 13) | (S << 12) | (r->id << 5) | (d->id));
 }
 
 static void emit_str(jit_ctx *ctx, hl_type_kind type, int offset,
@@ -816,7 +820,7 @@ static preg *alloc_register(jit_ctx *ctx, preg_kind kind) {
 }
 // <param name="andLoad">wether to load from the stack if needed</param>
 static preg *fetch(jit_ctx *ctx, vreg *r, bool andLoad) {
-//   printf("ctx: %p, r: %p, andLoad: %i\n", ctx, r, andLoad);
+  //   printf("ctx: %p, r: %p, andLoad: %i\n", ctx, r, andLoad);
   if (r->current)
     return r->current;
   else {
@@ -840,11 +844,11 @@ static void load(jit_ctx *ctx, vreg *r, preg *into) {
 static void bind(jit_ctx *ctx, vreg *r, preg *p) {
   if (r->current)
     r->current->holds = NULL;
-if(p->holds)
-	p->holds->current = NULL;
+  if (p->holds)
+    p->holds->current = NULL;
   p->holds = r;
   r->current = p;
-//   scratch(ctx, p, false);
+  //   scratch(ctx, p, false);
 }
 
 static void scratch(jit_ctx *ctx, preg *p, bool release) {
@@ -859,9 +863,9 @@ static void scratch(jit_ctx *ctx, preg *p, bool release) {
 }
 
 static void vscratch(jit_ctx *ctx, vreg *v) {
-	if(v->current != NULL) {
-		scratch(ctx, v->current, true);
-	}
+  if (v->current != NULL) {
+    scratch(ctx, v->current, true);
+  }
 }
 
 static void unbind(preg *p) {
@@ -901,7 +905,8 @@ static void register_jump(jit_ctx *ctx, CpuOp op, size_t pos, int target) {
     ctx->opsPos[target] = -1;
 }
 
-static void patch_jump(jit_ctx *ctx, CpuOp op, intptr_t jump_pos, int target_pos) {
+static void patch_jump(jit_ctx *ctx, CpuOp op, intptr_t jump_pos,
+                       int target_pos) {
   int32_t offset;
   switch (op) {
   case B:
@@ -1026,7 +1031,8 @@ static void call_reg(jit_ctx *ctx, vreg *dst, preg *fn_adr, int arg_count,
   end_call(ctx, stack_size);
 }
 
-static void call_native_regs(jit_ctx *ctx, vreg *dst, intptr_t fn_adr, int arg_count, int*args) {
+static void call_native_regs(jit_ctx *ctx, vreg *dst, intptr_t fn_adr,
+                             int arg_count, int *args) {
   start_call(ctx);
   uint32_t stack_size = pass_parameters(ctx, arg_count, args);
   load_const(ctx, REG_AT(17), sizeof(void *), fn_adr);
@@ -1103,23 +1109,23 @@ static void *get_dynget(hl_type *t) {
 
 static void make_dyn_cast(jit_ctx *ctx, vreg *dst, vreg *v) {
   start_call(ctx);
-//   load(ctx, v, REG_AT(0));
-//   if (v->stackPos >= 0) {
-    emit_ari_imm(ctx, ADD, true, v->stackPos, REG_AT(SP), REG_AT(0));
-//   } else {
-//     emit_ari_imm(ctx, SUB, true, -v->stackPos, REG_AT(29), REG_AT(0));
-//   }
+  //   load(ctx, v, REG_AT(0));
+  //   if (v->stackPos >= 0) {
+  emit_ari_imm(ctx, ADD, true, v->stackPos, REG_AT(SP), REG_AT(0));
+  //   } else {
+  //     emit_ari_imm(ctx, SUB, true, -v->stackPos, REG_AT(29), REG_AT(0));
+  //   }
 
   load_const(ctx, REG_AT(1), sizeof(hl_type *), (int_val)v->t);
   if (!T_IS_FLOAT(dst->t->kind)) {
     load_const(ctx, REG_AT(2), sizeof(hl_type *), (int_val)dst->t);
   } else {
-	emit_brk(ctx, 0);
+    emit_brk(ctx, 0);
   }
   load_const(ctx, REG_AT(17), sizeof(void *), (int_val)get_dyncast(dst->t));
   emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
-  if(dst != NULL && dst->t->kind != HVOID) {
-	bind(ctx, dst, REG_AT(0));
+  if (dst != NULL && dst->t->kind != HVOID) {
+    bind(ctx, dst, REG_AT(0));
   }
   end_call(ctx, 0);
 }
@@ -1128,8 +1134,9 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
   if (ctx->dump_file)
     fprintf(ctx->dump_file, "function %i\n", f->findex);
   jit_buf(ctx);
-  if(BUF_POS() == 0) {
-    W(0); // ensure we never run into a function ptr equal to 0 in the code for calling functions
+  if (BUF_POS() == 0) {
+    W(0); // ensure we never run into a function ptr equal to 0 in the code for
+          // calling functions
   }
   ctx->functionPos = BUF_POS();
   assert(ctx->startBuf != NULL && ctx->bufSize != 0);
@@ -1173,7 +1180,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     // args 1 to 7 go in registers
     if (i > 7) {
       // use existing stack storage
-	  TODO("args on stack");
+      TODO("args on stack");
       r->stackPos = (argsSize + sizeof(void *) * 2);
       argsSize += type_stack_size(r->t);
     } else {
@@ -1191,12 +1198,12 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     size += hl_pad_size(size, r->t); // align local vars
   }
   size = ((size / 16) + 1) * 16;
-//   size += (-size) & 15; // align on 16 bytes
+  //   size += (-size) & 15; // align on 16 bytes
   ctx->totalRegsSize = size;
 
   emit_ari_imm(ctx, SUB, true, 16, REG_AT(SP), REG_AT(SP));
   emit_str(ctx, HREF, 8, false, false, REG_AT(XREG(30)), REG_AT(SP));
-  //emit_ari_imm(ctx, SUB, true, 8, REG_AT(SP), REG_AT(SP));
+  // emit_ari_imm(ctx, SUB, true, 8, REG_AT(SP), REG_AT(SP));
   emit_str(ctx, HREF, 0, false, false, REG_AT(XREG(29)), REG_AT(SP));
   // stp x29, x30, [sp, #-16]!
   // W(0xA9BF7BFD);
@@ -1250,8 +1257,8 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
         fprintf(ctx->dump_file, "OBool r%i, %s\n", o->p1,
                 o->p2 ? "true" : "false");
       preg *dst = fetch(ctx, R(o->p1), false);
-	  emit_movw_imm(ctx, MOVZ, true, o->p2, 0, dst);
-    //   emit_ari_imm(ctx, ADD, true, o->p2, REG_AT(ZR), dst);
+      emit_movw_imm(ctx, MOVZ, true, o->p2, 0, dst);
+      //   emit_ari_imm(ctx, ADD, true, o->p2, REG_AT(ZR), dst);
       break;
     }
     case OBytes: {
@@ -1378,9 +1385,41 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     case OCallThis:
       emit_brk(ctx, o->op);
       break;
-    case OCallClosure:
+    case OCallClosure: {
       emit_brk(ctx, o->op);
+      // vreg *dst = R(o->p1);
+      // vreg *fn = R(o->p2);
+      // int arg_count = o->p3;
+      // if(fn->t->kind == HDYN) {
+      //   // ASM for {
+      //   //	vdynamic *args[] = {args};
+      //   //  vdynamic *ret = hl_dyn_call(closure,args,nargs);
+      //   //  dst = hl_dyncast(ret,t_dynamic,t_dst);
+      //   // }
+      // } else {
+      //   // ASM for  if( c->hasValue ) c->fun(value,args) else c->fun(args)
+      //   load(ctx, fn, REG_AT(17));
+      //   preg *tmp = alloc_register(ctx, RCPU);
+      //   emit_ldr(ctx, HI32, 16, tmp, REG_AT(17));
+      //   emit_ari_imm(ctx, SUBS, false, 1, tmp, REG_AT(ZR));
+      //   int jNoVal = BUF_POS();
+      //   emit_cond_branch(ctx, EQ, 0);
+      //   int regids[64];
+      //   regids[0] = o->p2;
+      //   if(arg_count >= 63) ERROR("too many closure arguments");
+      //   memcpy(regids + 1, o->extra, arg_count * sizeof(int));
+      //   load(ctx, fn, REG_AT(17));
+      //   call_reg(ctx, dst, REG_AT(17), arg_count + 1, regids);
+      //   int jEnd = BUF_POS();
+      //   emit_uncond_branch_imm(ctx, B, 0);
+      //   patch_jump(ctx, BCOND, jNoVal, BUF_POS());
+      //   load(ctx, fn, REG_AT(17));
+      //   emit_ldr(ctx, HBYTES, 8, REG_AT(17), REG_AT(17));
+      //   call_reg(ctx, dst, REG_AT(17), arg_count, o->extra);
+      //   patch_jump(ctx, B, jEnd, BUF_POS());
+      // }
       break;
+    }
 
     case OStaticClosure:
       emit_brk(ctx, o->op);
@@ -1451,37 +1490,69 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
     }
     case OGetThis: {
-		vreg *this = R(0);
-		hl_runtime_obj *rt = hl_get_obj_rt(this->t);
-		preg *pthis = fetch(ctx, this, true);
-		if(dst->t->kind == HSTRUCT) {
+      vreg *this = R(0);
+      hl_runtime_obj *rt = hl_get_obj_rt(this->t);
+      preg *pthis = fetch(ctx, this, true);
+      if (dst->t->kind == HSTRUCT) {
         hl_type *ft = hl_obj_field_fetch(this->t, o->p2)->t;
-        	if( ft->kind == HPACKED ) {
-				TODO("packed struct");
-        		// preg *r = alloc_reg(ctx,RCPU);
-        		// op64(ctx,LEA,r,pmem(&p,(CpuReg)rr->id,rt->fields_indexes[o->p2]));
-        		// store(ctx,dst,r,true);
-        		// break;
-        	}
+        if (ft->kind == HPACKED) {
+          TODO("packed struct");
+          // preg *r = alloc_reg(ctx,RCPU);
+          // op64(ctx,LEA,r,pmem(&p,(CpuReg)rr->id,rt->fields_indexes[o->p2]));
+          // store(ctx,dst,r,true);
+          // break;
         }
-		preg *dst = fetch(ctx, R(o->p1), true);
-		emit_ldr(ctx, dst->holds->t->kind, rt->fields_indexes[o->p2], dst, pthis);
-		break;
-	}
-	case OSetThis: {
-			vreg *this = R(0);
-			hl_runtime_obj *rt = hl_get_obj_rt(this->t);
-			preg *pthis = fetch(ctx, this, true);
-			preg *val = fetch(ctx, R(o->p2), true);
-			emit_str(ctx, val->holds->t->kind, rt->fields_indexes[o->p1],
-						false, false, val, pthis);
-	} break;
-    case ODynGet:
-      emit_brk(ctx, o->op);
+      }
+      preg *dst = fetch(ctx, R(o->p1), true);
+      emit_ldr(ctx, dst->holds->t->kind, rt->fields_indexes[o->p2], dst, pthis);
       break;
-    case ODynSet:
-      emit_brk(ctx, o->op);
+    }
+    case OSetThis: {
+      vreg *this = R(0);
+      hl_runtime_obj *rt = hl_get_obj_rt(this->t);
+      preg *pthis = fetch(ctx, this, true);
+      preg *val = fetch(ctx, R(o->p2), true);
+      emit_str(ctx, val->holds->t->kind, rt->fields_indexes[o->p1], false,
+               false, val, pthis);
+    } break;
+    case ODynGet: {
+      vreg *dst = R(o->p1);
+      vreg *obj = R(o->p2);
+      if (T_IS_FLOAT(dst->t->kind)) {
+        emit_brk(ctx, o->op);
+      } else {
+        void *get_fn = get_dynget(dst->t);
+        start_call(ctx);
+        load(ctx, obj, REG_AT(0));
+        load_const(ctx, REG_AT(1), sizeof(int),
+                   hl_hash_utf8(m->code->strings[o->p3]));
+        load_const(ctx, REG_AT(17), sizeof(void *), (uint64_t)get_fn);
+        emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
+        bind(ctx, dst, REG_AT(0));
+        end_call(ctx, 0);
+      }
       break;
+    }
+
+    case ODynSet: {
+      vreg *obj = R(o->p1);
+      vreg *val = R(o->p3);
+      if (T_IS_FLOAT(dst->t->kind)) {
+        emit_brk(ctx, o->op);
+      } else {
+        void *set_fn = get_dynset(dst->t);
+        start_call(ctx);
+        load(ctx, obj, REG_AT(0));
+        load_const(ctx, REG_AT(1), sizeof(int),
+                   hl_hash_utf8(m->code->strings[o->p2]));
+        load_const(ctx, REG_AT(2), sizeof(hl_type *), (intptr_t)val->t);
+        load(ctx, val, REG_AT(3));
+        load_const(ctx, REG_AT(17), sizeof(void *), (uint64_t)set_fn);
+        emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
+        end_call(ctx, 0);
+      }
+      break;
+    }
 
     case OJTrue: {
       vreg *r = R(o->p1);
@@ -1564,34 +1635,34 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       emit_uncond_branch_imm(ctx, B, 0);
       register_jump(ctx, B, BUF_POS() - 4, opCount + 1 + o->p1);
       break;
-    case OToDyn:{
+    case OToDyn: {
       vreg *src = R(o->p2);
       vreg *dst = R(o->p1);
-      if( src->t->kind == HBOOL ) {
+      if (src->t->kind == HBOOL) {
         call_native_regs(ctx, dst, (intptr_t)hl_alloc_dynbool, 1, &o->p2);
-			} else {
-				int_val rt = (int_val)src->t;
-				size_t jskip = 0;
-				if( hl_is_ptr(src->t) ) {
+      } else {
+        int_val rt = (int_val)src->t;
+        size_t jskip = 0;
+        if (hl_is_ptr(src->t)) {
           emit_ari_imm(ctx, SUBS, true, 0, fetch(ctx, src, true), REG_AT(ZR));
           size_t jnz = BUF_POS();
           emit_cond_branch(ctx, NE, 0);
           scratch(ctx, REG_AT(0), true);
-          emit_log_shift_reg(ctx, ORR, true, REG_AT(ZR), REG_AT(ZR), REG_AT(0), LSL,
-                             0);
+          emit_log_shift_reg(ctx, ORR, true, REG_AT(ZR), REG_AT(ZR), REG_AT(0),
+                             LSL, 0);
           jskip = BUF_POS();
           emit_uncond_branch_imm(ctx, B, 0);
           patch_jump(ctx, BCOND, jnz, BUF_POS());
-				}
-				call_native_consts(ctx, dst, (intptr_t)hl_alloc_dynamic, 1, &rt);
-        emit_str(ctx, src->t->kind, 8, false, false,
-                                         fetch(ctx, src, true),
-                                         fetch(ctx, src, true));
-        if( hl_is_ptr(src->t) ) patch_jump(ctx,B, jskip, BUF_POS());
+        }
+        call_native_consts(ctx, dst, (intptr_t)hl_alloc_dynamic, 1, &rt);
+        emit_str(ctx, src->t->kind, 8, false, false, fetch(ctx, src, true),
+                 fetch(ctx, src, true));
+        if (hl_is_ptr(src->t))
+          patch_jump(ctx, B, jskip, BUF_POS());
         // dst should already have been bound to x0 by call_native_consts
-			}
-      break;
       }
+      break;
+    }
     case OToSFloat:
       emit_brk(ctx, o->op);
       break;
@@ -1608,28 +1679,35 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       emit_brk(ctx, o->op);
       break;
     case OToVirtual:
-      emit_brk(ctx, o->op);
+      start_call(ctx);
+      load_const(ctx, REG_AT(0), 8, (intptr_t)R(o->p1)->t);
+      load(ctx, R(o->p2), REG_AT(1));
+      load_const(ctx, REG_AT(17), sizeof(void *), (uint64_t)hl_to_virtual);
+      emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
+      bind(ctx, R(o->p1), REG_AT(0));
+      end_call(ctx, 0);
       break;
 
     case OLabel:
       break;
-    case ORet:{
-    	vreg *val = R(o->p1);
-		if(val->t->kind != HVOID) {
-			load(ctx, val, REG_AT(0));
-		}
-          if (ctx->totalRegsSize > 0) {
+    case ORet: {
+      vreg *val = R(o->p1);
+      if (val->t->kind != HVOID) {
+        load(ctx, val, REG_AT(0));
+      }
+      if (ctx->totalRegsSize > 0) {
         emit_ari_imm(ctx, ADD, true, ctx->totalRegsSize, REG_AT(SP),
                      REG_AT(SP));
       }
       emit_ldr(ctx, HREF, 0, REG_AT(29), REG_AT(SP));
-    //   emit_ari_imm(ctx, ADD, true, 8, REG_AT(SP), REG_AT(SP));
+      //   emit_ari_imm(ctx, ADD, true, 8, REG_AT(SP), REG_AT(SP));
       emit_ldr(ctx, HREF, 8, REG_AT(30), REG_AT(SP));
       emit_ari_imm(ctx, ADD, true, 16, REG_AT(SP), REG_AT(SP));
       // ldp x29, x30, [sp], #16
       // W(0xA8C17BFD);
       emit_uncond_branch_reg(ctx, RET, REG_AT(30));
-      break;}
+      break;
+    }
     case OThrow:
       emit_brk(ctx, o->op);
       break;
@@ -1644,10 +1722,10 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       emit_ari_imm(ctx, SUBS, true, 0, fetch(ctx, r, true), REG_AT(ZR));
       emit_cond_branch(ctx, NE, 0);
       size_t pos = BUF_POS() - 4;
-	  emit_brk(ctx, 4);
-    //   start_call(ctx);
-    //   load_const(ctx, REG_AT(17), sizeof(void *), (int_val)hl_null_access);
-    //   emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
+      emit_brk(ctx, 4);
+      //   start_call(ctx);
+      //   load_const(ctx, REG_AT(17), sizeof(void *), (int_val)hl_null_access);
+      //   emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
       // end_call(ctx, 0);
       int jumpBy = (BUF_POS() - pos) / 4;
       *(int *)(ctx->startBuf + pos) |= ((jumpBy & 0x7FFFF) << 5);
@@ -1669,19 +1747,17 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     case OGetMem:
       emit_brk(ctx, o->op);
       break;
-    case OGetArray:
-    {
-		preg *dst = fetch(ctx, R(o->p1), false);
-		preg *a = fetch(ctx, R(o->p2), true);
-		preg *offset = fetch(ctx, R(o->p3), true);
-		preg *tmp = alloc_register(ctx, RCPU);
-		load_const(ctx, tmp, 4, hl_type_size(dst->holds->t));
-		// reuse dst instead of allocating a second tmp register
-		load_const(ctx, dst, 4, sizeof(varray));
-		emit_data_proc_rrr(ctx, MADD, true, tmp, offset, tmp, dst);
-		emit_ldr_r(ctx, dst->holds->t->kind, dst, a, tmp);
-	  }
-      break;
+    case OGetArray: {
+      preg *dst = fetch(ctx, R(o->p1), false);
+      preg *a = fetch(ctx, R(o->p2), true);
+      preg *offset = fetch(ctx, R(o->p3), true);
+      preg *tmp = alloc_register(ctx, RCPU);
+      load_const(ctx, tmp, 4, hl_type_size(dst->holds->t));
+      // reuse dst instead of allocating a second tmp register
+      load_const(ctx, dst, 4, sizeof(varray));
+      emit_data_proc_rrr(ctx, MADD, true, tmp, offset, tmp, dst);
+      emit_ldr_r(ctx, dst->holds->t->kind, dst, a, tmp);
+    } break;
     case OSetI8:
       emit_brk(ctx, o->op);
       break;
@@ -1712,17 +1788,17 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       default:
         ERROR("Expect HOBJ, HSTRUCT or HVIRTUAL");
       }
-    //   printf("alloc type: %p\n", dst->t);
+      //   printf("alloc type: %p\n", dst->t);
       call_native_consts(ctx, dst, (intptr_t)allocFun, 1,
                          (intptr_t[]){(intptr_t)dst->t});
       break;
     }
-    case OArraySize:{
+    case OArraySize: {
       preg *dst = fetch(ctx, R(o->p1), false);
-      emit_ldr(ctx, dst->holds->t->kind, HL_WSIZE * 2,
-               dst, fetch(ctx, R(o->p2), true));
+      emit_ldr(ctx, dst->holds->t->kind, HL_WSIZE * 2, dst,
+               fetch(ctx, R(o->p2), true));
       break;
-	}
+    }
     case OType: {
       intptr_t value = (size_t)(m->code->types + o->p2);
       // printf("type: %p", (void*)value);
@@ -1736,23 +1812,24 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       emit_brk(ctx, o->op);
       break;
 
-    case ORef:{
+    case ORef: {
       vreg *a = R(o->p2);
-	  vscratch(ctx, R(o->p2));
+      vscratch(ctx, R(o->p2));
       if (a->stackPos > 0) {
-		emit_ari_imm(ctx, ADD, true, a->stackPos, REG_AT(SP), fetch(ctx, R(o->p1), false));
-	  } else {
-		TODO("ref stack argument")
-	  }
+        emit_ari_imm(ctx, ADD, true, a->stackPos, REG_AT(SP),
+                     fetch(ctx, R(o->p1), false));
+      } else {
+        TODO("ref stack argument")
+      }
       break;
-	  }
-    case OUnref:{
+    }
+    case OUnref: {
       vreg *dst = R(o->p1);
       vreg *ref = R(o->p2);
       emit_ldr(ctx, dst->t->kind, 0, fetch(ctx, dst, false),
                fetch(ctx, ref, true));
       break;
-	}
+    }
     case OSetref:
       emit_brk(ctx, o->op);
       break;
@@ -1809,10 +1886,12 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       int32_t offset;
       switch (j->op) {
       case B:
-        offset = (((ctx->opsPos[j->target] - (j->pos /*+ 4*/)) / 4) & 0x3FFFFFF);
+        offset =
+            (((ctx->opsPos[j->target] - (j->pos /*+ 4*/)) / 4) & 0x3FFFFFF);
         break;
       case BCOND:
-        offset = (((ctx->opsPos[j->target] - (j->pos /*+ 4*/)) / 4) & 0x7FFFF) << 5;
+        offset = (((ctx->opsPos[j->target] - (j->pos /*+ 4*/)) / 4) & 0x7FFFF)
+                 << 5;
         break;
       default:
         ERROR("Expected a branch.");
@@ -1892,9 +1971,10 @@ static void hl_jit_init_module(jit_ctx *ctx, hl_module *m) {
   if (m->code->hasdebug)
     ctx->debug =
         (hl_debug_infos *)malloc(sizeof(hl_debug_infos) * m->code->nfunctions);
-//   printf("code types: %p, count: %i\n", m->code->types, m->code->ntypes);
-//   printf("code strings: %p, count: %i\n", m->code->strings, m->code->nstrings);
-//   printf("code bytes: %p, count: %i\n", m->code->bytes, m->code->nbytes);
+  //   printf("code types: %p, count: %i\n", m->code->types, m->code->ntypes);
+  //   printf("code strings: %p, count: %i\n", m->code->strings,
+  //   m->code->nstrings); printf("code bytes: %p, count: %i\n", m->code->bytes,
+  //   m->code->nbytes);
   ctx->dump_file = fopen("code.dump", "w+");
   // jit_buf(ctx);
   // W(0);
@@ -1985,7 +2065,7 @@ void *hl_jit_code(jit_ctx *ctx, hl_module *m, int *codesize,
            "MB\noffset %.5f MB",
            (double)offset / (double)(1 << 20));
     }
-    *((int*)&code[c->pos]) |= ((offset) & 0x03FFFFFF);
+    *((int *)&code[c->pos]) |= ((offset)&0x03FFFFFF);
     c = c->next;
   }
 #ifdef __APPLE__
@@ -1995,7 +2075,7 @@ void *hl_jit_code(jit_ctx *ctx, hl_module *m, int *codesize,
   clear_cache(code, size);
   *codesize = size;
   *debug = ctx->debug;
-//   printf("code: %p, size: %lu\n", code, size);
+  //   printf("code: %p, size: %lu\n", code, size);
   fflush(stdout);
   return code;
 }
