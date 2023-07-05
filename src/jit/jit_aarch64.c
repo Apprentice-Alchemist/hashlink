@@ -26,17 +26,18 @@
 // FPU/SIMD register
 #define VREG(i) (RCPU_COUNT + i)
 // Zero Register
-#define ZR REG_COUNT
+#define ZR REG_COUNT - 1
 // Stack Pointer
-#define SP REG_COUNT
+#define SP REG_COUNT - 1
 
 #define RCPU_COUNT 31
 #define RFPU_COUNT 32
 // 31 general purpose register + 32 fpu register + sp/zr special register
 #define REG_COUNT RCPU_COUNT + RFPU_COUNT + 1
 
-#define REG_AT(i) ctx->pregs + (i)
-#define R(i) (ctx->vregs + i)
+#define REG_AT(i) get_preg(ctx, i)
+
+#define R(i) (&ctx->vregs[i])
 
 #define BUF_POS() (intptr_t)((unsigned char *)ctx->buf - ctx->startBuf)
 
@@ -189,6 +190,32 @@ struct jit_ctx {
 
   FILE *dump_file;
 };
+
+static preg *get_preg(jit_ctx *ctx, int i) {
+  assert(i < REG_COUNT);
+  return &ctx->pregs[i];
+}
+
+static void save_regs(jit_ctx *ctx) {
+  for (int i = 0; i < REG_COUNT; i++) {
+    ctx->savedRegs[i] = ctx->pregs[i].holds;
+    ctx->savedLocks[i] = ctx->pregs[i].lock;
+  }
+}
+
+static void restore_regs(jit_ctx *ctx) {
+  int i;
+  for (i = 0; i < ctx->maxRegs; i++)
+    ctx->vregs[i].current = NULL;
+  for (i = 0; i < REG_COUNT; i++) {
+    vreg *r = ctx->savedRegs[i];
+    preg *p = ctx->pregs + i;
+    p->holds = r;
+    p->lock = ctx->savedLocks[i];
+    if (r)
+      r->current = p;
+  }
+}
 
 static void jit_buf(jit_ctx *ctx) {
   if (BUF_POS() + MAX_OP_SIZE > ctx->bufSize) {
@@ -750,7 +777,7 @@ static void emit_ldr(jit_ctx *ctx, hl_type_kind type, int32_t offset, preg *d,
 static void emit_ldr_r(jit_ctx *ctx, hl_type_kind type, preg *d, preg *r,
                        preg *off) {
   uint32_t size = type_to_size(type);
-  uint32_t V = 0;
+  uint32_t V = (type == HF32 || type == HF64) ? 1 : 0;
   uint32_t opc = 1;
   uint32_t option = 3; // LSL
   uint32_t S = 0;
@@ -779,6 +806,18 @@ static void emit_str(jit_ctx *ctx, hl_type_kind type, int offset,
       ((offset & 0xFFF) << 12) | (!postindex << 11) | wback << 10 |
       (d->id << 5) | (r->id));
   }
+}
+
+static void emit_str_r(jit_ctx *ctx, hl_type_kind type, preg *dst, preg *r, preg *off) {
+  if (type == HVOID)
+    return;
+  uint32_t size = type_to_size(type);
+  uint32_t V = (type == HF32 || type == HF64) ? 1 : 0;
+  uint32_t opc = 0;
+  uint32_t option = 3; // LSL
+  uint32_t S = 0;
+  W(0x38200800 | (size << 30) | (V << 26) | (opc << 22) | (off->id << 16) |
+    (option << 13) | (S << 12) | (dst->id << 5) | (r->id));
 }
 
 static void emit_nop(jit_ctx *ctx) { W(0xD503201F); }
@@ -921,8 +960,9 @@ static void patch_jump(jit_ctx *ctx, CpuOp op, intptr_t jump_pos,
   *(uint32_t *)(ctx->startBuf + jump_pos) |= offset;
 }
 
-static uint32_t pass_parameters(jit_ctx *ctx, int arg_count, int *args) {
-  uint32_t NGRN = 0;
+// offset only applies to general regs, and assume offset < 7
+static uint32_t pass_parameters(jit_ctx *ctx, int offset, int arg_count, int *args) {
+  uint32_t NGRN = offset;
   uint32_t NSRN = 0;
   uint32_t NPRN = 0;
   uint32_t NSAA = 0;
@@ -988,7 +1028,7 @@ static void end_call(jit_ctx *ctx, int stack_size) {
 static void call(jit_ctx *ctx, vreg *dst, int findex, int arg_count,
                  int *args) {
   start_call(ctx);
-  uint32_t stack_size = pass_parameters(ctx, arg_count, args);
+  uint32_t stack_size = pass_parameters(ctx, 0, arg_count, args);
   int fid = ctx->m->functions_indexes[findex];
   if (fid >= ctx->m->code->nfunctions) {
     // native function
@@ -1024,7 +1064,7 @@ static void call(jit_ctx *ctx, vreg *dst, int findex, int arg_count,
 static void call_reg(jit_ctx *ctx, vreg *dst, preg *fn_adr, int arg_count,
                      int *args) {
   start_call(ctx);
-  uint32_t stack_size = pass_parameters(ctx, arg_count, args);
+  uint32_t stack_size = pass_parameters(ctx, 0, arg_count, args);
   emit_uncond_branch_reg(ctx, BLR, fn_adr);
   if (dst && dst->t->kind != HVOID)
     bind(ctx, dst, REG_AT(0));
@@ -1034,7 +1074,7 @@ static void call_reg(jit_ctx *ctx, vreg *dst, preg *fn_adr, int arg_count,
 static void call_native_regs(jit_ctx *ctx, vreg *dst, intptr_t fn_adr,
                              int arg_count, int *args) {
   start_call(ctx);
-  uint32_t stack_size = pass_parameters(ctx, arg_count, args);
+  uint32_t stack_size = pass_parameters(ctx, 0, arg_count, args);
   load_const(ctx, REG_AT(17), sizeof(void *), fn_adr);
   emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
   if (dst && dst->t->kind != HVOID)
@@ -1057,6 +1097,18 @@ static void call_native_consts(jit_ctx *ctx, vreg *dst, intptr_t fn_adr,
   if (dst && dst->t->kind != HVOID)
     bind(ctx, dst, REG_AT(0));
   end_call(ctx, 0);
+}
+
+static void call_value_closure(jit_ctx *ctx, vreg *dst, vreg *fn, int arg_count, int *args) {
+  start_call(ctx);
+  int stack_size = 0;
+  load(ctx, fn, REG_AT(17));
+  emit_ldr(ctx, HBYTES, 24, REG_AT(0), REG_AT(17));
+  pass_parameters(ctx, 1, arg_count, args);
+  emit_ldr(ctx, HBYTES, 8, REG_AT(17), REG_AT(17));
+  if (dst && dst->t->kind != HVOID)
+    bind(ctx, dst, REG_AT(0));
+  end_call(ctx, stack_size);
 }
 
 static void *get_dyncast(hl_type *t) {
@@ -1299,10 +1351,20 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       }
       break;
     case OSub:
-      emit_brk(ctx, o->op);
+      if (T_IS_FLOAT(R(o->p2)->t->kind)) {
+        emit_brk(ctx, o->op);
+      } else {
+        emit_ari_shift_reg(ctx, SUB, false, fetch(ctx, R(o->p2), true),
+                           fetch(ctx, R(o->p3), true), fetch(ctx, dst, false),
+                           LSL, 0);
+      }
       break;
     case OMul:
-      emit_brk(ctx, o->op);
+      if (T_IS_FLOAT(R(o->p2)->t->kind)) {
+        emit_brk(ctx, o->op);
+      } else {
+        emit_data_proc_rrr(ctx, MADD, false, fetch(ctx, dst, false), fetch(ctx, R(o->p2), true), fetch(ctx, R(o->p2), true), REG_AT(ZR));
+      }
       break;
     case OSDiv:
       emit_brk(ctx, o->op);
@@ -1317,13 +1379,29 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       emit_brk(ctx, o->op);
       break;
     case OShl:
-      emit_brk(ctx, o->op);
+      if (T_IS_FLOAT(R(o->p2)->t->kind)) {
+        emit_brk(ctx, o->op);
+      } else {
+        emit_data_proc_rr(ctx, LSLV, false, fetch(ctx, R(o->p3), true),
+                           fetch(ctx, R(o->p2), true), fetch(ctx, dst, false)
+                           );
+      }
       break;
     case OSShr:
-      emit_brk(ctx, o->op);
+      if (T_IS_FLOAT(R(o->p2)->t->kind)) {
+        emit_brk(ctx, o->op);
+      } else {
+        emit_data_proc_rr(ctx, ASRV, false, fetch(ctx, R(o->p3), true),
+                          fetch(ctx, R(o->p2), true), fetch(ctx, dst, false));
+      }
       break;
     case OUShr:
-      emit_brk(ctx, o->op);
+      if (T_IS_FLOAT(R(o->p2)->t->kind)) {
+        emit_brk(ctx, o->op);
+      } else {
+        emit_data_proc_rr(ctx, LSRV, false, fetch(ctx, R(o->p3), true),
+                          fetch(ctx, R(o->p2), true), fetch(ctx, dst, false));
+      }
       break;
     case OAnd:
       emit_brk(ctx, o->op);
@@ -1386,38 +1464,35 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       emit_brk(ctx, o->op);
       break;
     case OCallClosure: {
-      emit_brk(ctx, o->op);
-      // vreg *dst = R(o->p1);
-      // vreg *fn = R(o->p2);
-      // int arg_count = o->p3;
-      // if(fn->t->kind == HDYN) {
-      //   // ASM for {
-      //   //	vdynamic *args[] = {args};
-      //   //  vdynamic *ret = hl_dyn_call(closure,args,nargs);
-      //   //  dst = hl_dyncast(ret,t_dynamic,t_dst);
-      //   // }
-      // } else {
-      //   // ASM for  if( c->hasValue ) c->fun(value,args) else c->fun(args)
-      //   load(ctx, fn, REG_AT(17));
-      //   preg *tmp = alloc_register(ctx, RCPU);
-      //   emit_ldr(ctx, HI32, 16, tmp, REG_AT(17));
-      //   emit_ari_imm(ctx, SUBS, false, 1, tmp, REG_AT(ZR));
-      //   int jNoVal = BUF_POS();
-      //   emit_cond_branch(ctx, EQ, 0);
-      //   int regids[64];
-      //   regids[0] = o->p2;
-      //   if(arg_count >= 63) ERROR("too many closure arguments");
-      //   memcpy(regids + 1, o->extra, arg_count * sizeof(int));
-      //   load(ctx, fn, REG_AT(17));
-      //   call_reg(ctx, dst, REG_AT(17), arg_count + 1, regids);
-      //   int jEnd = BUF_POS();
-      //   emit_uncond_branch_imm(ctx, B, 0);
-      //   patch_jump(ctx, BCOND, jNoVal, BUF_POS());
-      //   load(ctx, fn, REG_AT(17));
-      //   emit_ldr(ctx, HBYTES, 8, REG_AT(17), REG_AT(17));
-      //   call_reg(ctx, dst, REG_AT(17), arg_count, o->extra);
-      //   patch_jump(ctx, B, jEnd, BUF_POS());
-      // }
+      vreg *dst = R(o->p1);
+      vreg *fn = R(o->p2);
+      int arg_count = o->p3;
+      if(fn->t->kind == HDYN) {
+        // ASM for {
+        //	vdynamic *args[] = {args};
+        //  vdynamic *ret = hl_dyn_call(closure,args,nargs);
+        //  dst = hl_dyncast(ret,t_dynamic,t_dst);
+        // }
+        emit_brk(ctx, o->op);
+      } else {
+        // ASM for  if( c->hasValue ) c->fun(value,args) else c->fun(args)
+        load(ctx, fn, REG_AT(17));
+        preg *tmp = alloc_register(ctx, RCPU);
+        emit_ldr(ctx, HI32, 16, tmp, REG_AT(17));
+        emit_ari_imm(ctx, SUBS, false, 0, tmp, REG_AT(ZR));
+        save_regs(ctx);
+        int jNoVal = BUF_POS();
+        emit_cond_branch(ctx, EQ, 0);
+        call_value_closure(ctx, dst, fn, arg_count, o->extra);
+        int jEnd = BUF_POS();
+        emit_uncond_branch_imm(ctx, B, 0);
+        patch_jump(ctx, BCOND, jNoVal, BUF_POS());
+        restore_regs(ctx);
+        load(ctx, fn, REG_AT(17));
+        emit_ldr(ctx, HBYTES, 8, REG_AT(17), REG_AT(17));
+        call_reg(ctx, dst, REG_AT(17), arg_count, o->extra);
+        patch_jump(ctx, B, jEnd, BUF_POS());
+      }
       break;
     }
 
@@ -1451,16 +1526,41 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       switch (R(o->p2)->t->kind) {
       case HOBJ:
       case HSTRUCT: {
+        // TODO: packed things
         hl_runtime_obj *rt = hl_get_obj_rt(R(o->p2)->t);
         preg *pa = fetch(ctx, R(o->p2), true);
         preg *pdst = fetch(ctx, dst, false);
         emit_ldr(ctx, R(o->p2)->t->kind, rt->fields_indexes[o->p3], pdst, pa);
       } break;
-      case HVIRTUAL:
-        emit_brk(ctx, o->op);
+      case HVIRTUAL:{
         // ASM for --> if( hl_vfields(o)[f] ) r = *hl_vfields(o)[f];
         // else r = hl_dyn_get(o,hash(field),vt)
-        break;
+        vreg *obj = R(o->p2);
+        vreg *dst = R(o->p1);
+        preg *pobj = fetch(ctx, obj, true);
+        scratch(ctx, REG_AT(0), true);
+        preg *tmp = REG_AT(0);
+        emit_ldr(
+            ctx, HBYTES, sizeof(vvirtual) + HL_WSIZE * o->p3, tmp, pobj);
+        emit_ari_imm(ctx, SUBS, false, 0, tmp, REG_AT(ZR));
+        int jNoVField = BUF_POS();
+        emit_cond_branch(ctx, EQ, 0);
+        emit_ldr(ctx, dst->t->kind, 0, tmp, tmp);
+        int jEnd = BUF_POS();
+        emit_uncond_branch_imm(ctx, B, 0);
+        patch_jump(ctx, BCOND, jNoVField, BUF_POS());
+        void *get_fn = get_dynget(dst->t);
+        start_call(ctx);
+        load(ctx, obj, REG_AT(0));
+        load_const(ctx, REG_AT(1), sizeof(int),
+                   obj->t->virt->fields[o->p3].hashed_name);
+        load_const(ctx, REG_AT(2), 8, (int_val)dst->t);
+        load_const(ctx, REG_AT(17), sizeof(void *), (uint64_t)get_fn);
+        emit_uncond_branch_reg(ctx, BLR, REG_AT(17));
+        end_call(ctx, 0);
+        patch_jump(ctx, B, jEnd, BUF_POS());
+        bind(ctx, dst, REG_AT(0));
+        break;}
       default:
         ERROR("Expected HOBJ, HSTRUCT or HVIRTUAL.");
         break;
@@ -1656,7 +1756,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
         }
         call_native_consts(ctx, dst, (intptr_t)hl_alloc_dynamic, 1, &rt);
         emit_str(ctx, src->t->kind, 8, false, false, fetch(ctx, src, true),
-                 fetch(ctx, src, true));
+                 fetch(ctx, dst, true));
         if (hl_is_ptr(src->t))
           patch_jump(ctx, B, jskip, BUF_POS());
         // dst should already have been bound to x0 by call_native_consts
@@ -1761,8 +1861,12 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     case OSetI8:
       emit_brk(ctx, o->op);
       break;
-    case OSetI16:
-      emit_brk(ctx, o->op);
+    case OSetI16:{
+      preg *base = fetch(ctx, dst, true);
+      preg *offset = fetch(ctx, R(o->p2), true);
+      preg *value = fetch(ctx, R(o->p3), true);
+      emit_str_r(ctx, HUI16, base, value, offset);
+      }
       break;
     case OSetMem:
       emit_brk(ctx, o->op);
