@@ -808,7 +808,8 @@ static void emit_str(jit_ctx *ctx, hl_type_kind type, int offset,
   }
 }
 
-static void emit_str_r(jit_ctx *ctx, hl_type_kind type, preg *dst, preg *r, preg *off) {
+static void emit_str_r(jit_ctx *ctx, hl_type_kind type, preg *dst, preg *r,
+                       preg *off) {
   if (type == HVOID)
     return;
   uint32_t size = type_to_size(type);
@@ -961,7 +962,8 @@ static void patch_jump(jit_ctx *ctx, CpuOp op, intptr_t jump_pos,
 }
 
 // offset only applies to general regs, and assume offset < 7
-static uint32_t pass_parameters(jit_ctx *ctx, int offset, int arg_count, int *args) {
+static uint32_t pass_parameters(jit_ctx *ctx, int offset, int arg_count,
+                                int *args) {
   uint32_t NGRN = offset;
   uint32_t NSRN = 0;
   uint32_t NPRN = 0;
@@ -1099,7 +1101,8 @@ static void call_native_consts(jit_ctx *ctx, vreg *dst, intptr_t fn_adr,
   end_call(ctx, 0);
 }
 
-static void call_value_closure(jit_ctx *ctx, vreg *dst, vreg *fn, int arg_count, int *args) {
+static void call_value_closure(jit_ctx *ctx, vreg *dst, vreg *fn, int arg_count,
+                               int *args) {
   start_call(ctx);
   int stack_size = 0;
   load(ctx, fn, REG_AT(17));
@@ -1363,7 +1366,9 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       if (T_IS_FLOAT(R(o->p2)->t->kind)) {
         emit_brk(ctx, o->op);
       } else {
-        emit_data_proc_rrr(ctx, MADD, false, fetch(ctx, dst, false), fetch(ctx, R(o->p2), true), fetch(ctx, R(o->p2), true), REG_AT(ZR));
+        emit_data_proc_rrr(ctx, MADD, false, fetch(ctx, dst, false),
+                           fetch(ctx, R(o->p2), true),
+                           fetch(ctx, R(o->p2), true), REG_AT(ZR));
       }
       break;
     case OSDiv:
@@ -1383,8 +1388,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
         emit_brk(ctx, o->op);
       } else {
         emit_data_proc_rr(ctx, LSLV, false, fetch(ctx, R(o->p3), true),
-                           fetch(ctx, R(o->p2), true), fetch(ctx, dst, false)
-                           );
+                          fetch(ctx, R(o->p2), true), fetch(ctx, dst, false));
       }
       break;
     case OSShr:
@@ -1467,7 +1471,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       vreg *dst = R(o->p1);
       vreg *fn = R(o->p2);
       int arg_count = o->p3;
-      if(fn->t->kind == HDYN) {
+      if (fn->t->kind == HDYN) {
         // ASM for {
         //	vdynamic *args[] = {args};
         //  vdynamic *ret = hl_dyn_call(closure,args,nargs);
@@ -1532,7 +1536,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
         preg *pdst = fetch(ctx, dst, false);
         emit_ldr(ctx, R(o->p2)->t->kind, rt->fields_indexes[o->p3], pdst, pa);
       } break;
-      case HVIRTUAL:{
+      case HVIRTUAL: {
         // ASM for --> if( hl_vfields(o)[f] ) r = *hl_vfields(o)[f];
         // else r = hl_dyn_get(o,hash(field),vt)
         vreg *obj = R(o->p2);
@@ -1540,8 +1544,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
         preg *pobj = fetch(ctx, obj, true);
         scratch(ctx, REG_AT(0), true);
         preg *tmp = REG_AT(0);
-        emit_ldr(
-            ctx, HBYTES, sizeof(vvirtual) + HL_WSIZE * o->p3, tmp, pobj);
+        emit_ldr(ctx, HBYTES, sizeof(vvirtual) + HL_WSIZE * o->p3, tmp, pobj);
         emit_ari_imm(ctx, SUBS, false, 0, tmp, REG_AT(ZR));
         int jNoVField = BUF_POS();
         emit_cond_branch(ctx, EQ, 0);
@@ -1560,7 +1563,8 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
         end_call(ctx, 0);
         patch_jump(ctx, B, jEnd, BUF_POS());
         bind(ctx, dst, REG_AT(0));
-        break;}
+        break;
+      }
       default:
         ERROR("Expected HOBJ, HSTRUCT or HVIRTUAL.");
         break;
@@ -1861,13 +1865,12 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     case OSetI8:
       emit_brk(ctx, o->op);
       break;
-    case OSetI16:{
+    case OSetI16: {
       preg *base = fetch(ctx, dst, true);
       preg *offset = fetch(ctx, R(o->p2), true);
       preg *value = fetch(ctx, R(o->p3), true);
       emit_str_r(ctx, HUI16, base, value, offset);
-      }
-      break;
+    } break;
     case OSetMem:
       emit_brk(ctx, o->op);
       break;
