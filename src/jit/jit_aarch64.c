@@ -74,22 +74,6 @@ typedef enum CpuOp {
 #undef OP
 } CpuOp;
 
-typedef enum FpuOp {
-  FMOV,
-  FABS,
-  FNEG,
-  FSQRT,
-  FCVT,
-  FCMP,
-  FCMPE,
-  FMUL,
-  FDIV,
-  FADD,
-  FSUB,
-  FMAX,
-  FMIN
-} FpuOp;
-
 typedef enum CondCode {
   // meaning (integer) / meaning(floating point)
   EQ = 0,  // equal / equal
@@ -302,8 +286,8 @@ static void emit_adr(jit_ctx *ctx, CpuOp cop, uint64_t imm, preg *d) {
   }
   // https://github.com/bytecodealliance/wasmtime/blob/3ba9e5865a8171d1b4547bcabe525666d030c18b/cranelift/codegen/src/isa/aarch64/inst/emit.rs#L333
   uint32_t immlo = imm & 3;
-  uint32_t immhi = imm >> 2; //(imm >> 2) & ((1 << 19) - 1);
-  W(0x10000000 | (op << 31) | ((immhi & 0x7FFFF) << 5) | ((immlo & 0x3) << 29) |
+  uint32_t immhi = (imm >> 2) & 0x7FFFF;
+  W(0x10000000 | (op << 31) | ((immhi) << 5) | ((immlo) << 29) |
     (d->id & 0x1F));
 }
 
@@ -667,29 +651,54 @@ static void emit_ari_shift_reg(jit_ctx *ctx, CpuOp cop, bool is64, preg *d,
     (m->id << 16) | (imm << 10) | (n->id << 5) | d->id);
 }
 
-// static void emit_mul_div(jit_ctx *ctx, )
 
-static void emit_ari_ext_reg(jit_ctx *ctx, CpuOp cop, bool is64) {
-  TODO("todo");
-}
-static void emit_ari_carry(jit_ctx *ctx, CpuOp cop, bool is64) { TODO("todo"); }
-static void emit_cond_comp_reg(jit_ctx *ctx, CpuOp cop, bool is64) {
-  TODO("todo");
-}
-static void emit_cond_comp_imm(jit_ctx *ctx, CpuOp cop, bool is64) {
-  TODO("todo");
+static void emit_float_mov() {}
+static void emit_float_conv() {}
+static void emit_float_round() {}
+
+typedef enum float_ari_r_op {
+  FMOV,
+  FNEG,
+  FCVT
+} float_ari_r_op_t;
+
+static void emit_float_ari_r(jit_ctx *ctx, bool is64, float_ari_r_op_t op, preg *d, preg *n) {
+  uint32_t ptype = is64 ? 1 : 0;
+  uint32_t opcode;
+
+  switch (op) {
+    case FMOV: opcode = 0; break;
+    case FNEG: opcode = 2; break;
+    case FCVT: opcode = is64 ? 5 : 4;
+  }
+
+  W(0x1e204000 | (ptype << 22) | (opcode << 15) | (n->id & 0x1F) << 5 |
+    (d->id & 0x1F));
 }
 
-static void emit_float_comp(jit_ctx *ctx, FpuOp cop, bool is64) {
-  TODO("todo");
+typedef enum float_ari_rr_op {
+  FADD,
+  FDIV,
+  FMUL,
+  FSUB,
+} float_ari_rr_op_t;
+
+static void emit_float_ari_rr(jit_ctx *ctx, bool is64, float_ari_rr_op_t op, preg *d,
+                              preg *a, preg *b) {
+                                uint32_t M = 0;
+                                uint32_t S = 0;
+                                uint32_t ptype = is64 ? 1 : 0;
+                                uint32_t opcode;
+  switch (op) {
+    case FADD: opcode = 2; break;
+    case FDIV: opcode = 1; break;
+    case FMUL: opcode = 0; break;
+    case FSUB: opcode = 3; break;
+  }
+  W(0x1e200800 | (M << 31) | (S << 29) | (ptype << 22) | (b->id & 0x1F) << 16 |
+    (opcode << 12) | (a->id & 0x1F) << 4 | (d->id & 0x1F));
 }
-static void emit_float_imm(jit_ctx *ctx, FpuOp cop, bool is64) { TODO("todo"); }
-static void emit_float_cond_comp(jit_ctx *ctx, FpuOp cop, bool is64) {
-  TODO("todo");
-}
-static void emit_float_data_proc_rrr(jit_ctx *ctx, FpuOp cop, bool is64) {
-  TODO("todo");
-}
+static void emit_float_cmp() {}
 
 static void emit_mov_rr(jit_ctx *ctx, bool is64, preg *r, preg *d) {
   if (r->id == 31 || d->id == SP) {
@@ -1002,7 +1011,11 @@ static void load_const(jit_ctx *ctx, preg *p, uint32_t size, uint64_t value) {
 static void mov(jit_ctx *ctx, vreg *src, vreg *dst) {
   preg *s = fetch(ctx, src, true);
   if (dst->current != NULL) {
-    emit_mov_rr(ctx, src->size == 8, s, dst->current);
+    if(T_IS_FLOAT(dst->t->kind)) {
+      emit_float_ari_r(ctx, dst->t->kind == HF64, FMOV, dst->current, s);
+    } else {
+      emit_mov_rr(ctx, src->size == 8, s, dst->current);
+    } 
   } else {
     emit_stur(ctx, src->t->kind, dst->stackPos, false, false, src->current,
              REG_AT(SP));
@@ -1378,17 +1391,28 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
     case OFloat: {
       preg *dst = fetch(ctx, R(o->p1), false);
-      // printf("i: %d\n", o->p2);
-      intptr_t addr = (intptr_t)(((double*)ctx->startBuf) + o->p2);
       preg *tmp = alloc_register(ctx, RCPU);
-      // printf("float: %f\n", *((double*)addr));
-      // printf("addr: %#lx\n", addr);
-      // printf("buf pos: %#lx\n", BUF_POS());
-      intptr_t off = ((addr) - (intptr_t)ctx->buf);
-      // printf("off: %#lx\n", off);
-      // printf("lo12: %#lx\n", addr & 0xFFF);
-      emit_adr(ctx, ADRP, off >> 12, tmp);
-      emit_ldr(ctx, HF64, dst, tmp, addr & 0xFFF);
+
+      intptr_t pc = (intptr_t)ctx->buf;
+      intptr_t addr = (intptr_t)(ctx->startBuf + o->p2 * sizeof(double));
+      intptr_t off = addr - pc;
+      intptr_t lo12 = 0;
+
+      if (off < 1048576 && off > -1048576) {
+        emit_adr(ctx, ADR, off, tmp);
+      } else {
+        intptr_t hi = off / 4096;
+        lo12 = (o->p2 * sizeof(double));
+        assert(lo12 < 4096);
+        emit_adr(ctx, ADRP, hi, tmp);
+      }
+
+      if(lo12 % 8 == 0) {
+        emit_ldr(ctx, HF64, dst, tmp, lo12);
+      } else {
+        assert((lo12 & 0x1FF) == lo12);
+        emit_ldur(ctx, HF64, off & 0xFFF, dst, tmp);
+      }
       break;
     }
     case OBool: {
@@ -1430,7 +1454,9 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
 
     case OAdd:
       if (T_IS_FLOAT(R(o->p2)->t->kind)) {
-        emit_brk(ctx, o->op);
+        emit_float_ari_rr(ctx, dst->t->kind == HF64, FADD,
+                          fetch(ctx, dst, false),  fetch(ctx, R(o->p2), true),
+                           fetch(ctx, R(o->p3), true));
       } else {
         emit_ari_shift_reg(ctx, ADD, false, fetch(ctx, dst, false), fetch(ctx, R(o->p2), true),
                            fetch(ctx, R(o->p3), true),
@@ -1439,7 +1465,9 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
     case OSub:
       if (T_IS_FLOAT(R(o->p2)->t->kind)) {
-        emit_brk(ctx, o->op);
+        emit_float_ari_rr(ctx, dst->t->kind == HF64, FSUB,
+                          fetch(ctx, dst, false), fetch(ctx, R(o->p2), true),
+                          fetch(ctx, R(o->p3), true));
       } else {
         emit_ari_shift_reg(ctx, SUB, false, fetch(ctx, dst, false), fetch(ctx, R(o->p2), true),
                            fetch(ctx, R(o->p3), true),
@@ -1448,7 +1476,9 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
     case OMul:
       if (T_IS_FLOAT(R(o->p2)->t->kind)) {
-        emit_brk(ctx, o->op);
+        emit_float_ari_rr(ctx, dst->t->kind == HF64, FMUL,
+                          fetch(ctx, dst, false), fetch(ctx, R(o->p2), true),
+                          fetch(ctx, R(o->p3), true));
       } else {
         emit_data_proc_rrr(ctx, MADD, false, fetch(ctx, dst, false),
                            fetch(ctx, R(o->p2), true),
@@ -1456,7 +1486,13 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       }
       break;
     case OSDiv:
+    if(T_IS_FLOAT(dst->t->kind)) {
+        emit_float_ari_rr(ctx, dst->t->kind == HF64, FDIV,
+                          fetch(ctx, dst, false), fetch(ctx, R(o->p2), true),
+                          fetch(ctx, R(o->p3), true));
+    } else {
       emit_brk(ctx, o->op);
+    }
       break;
     case OUDiv:
       emit_brk(ctx, o->op);
@@ -1503,7 +1539,8 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
 
     case ONeg:
       if (T_IS_FLOAT(R(o->p2)->t->kind)) {
-        emit_brk(ctx, o->op);
+        emit_float_ari_r(ctx, dst->t->kind == HF64, FNEG,
+                         fetch(ctx, dst, false), fetch(ctx, R(o->p2), true));
       } else {
         emit_ari_shift_reg(ctx, SUB, R(o->p2)->t->kind != HI32,
                            fetch(ctx, dst, false), REG_AT(ZR),
@@ -2179,8 +2216,11 @@ static void hl_jit_init_module(jit_ctx *ctx, hl_module *m) {
     *(b++) = m->code->floats[i];
   }
   ctx->buf = (uint32_t*)b;
-  emit_nop(ctx); // ensure we never run into a function ptr equal to 0 in the
-                 // code for calling functions
+  for (int i = 0; i <( 1048576 / 4) + 1; i++){
+    jit_buf(ctx);
+    emit_nop(ctx); // ensure we never run into a function ptr equal to 0 in the
+  }
+                   // code for calling functions
 }
 
 void hl_jit_reset(jit_ctx *ctx, hl_module *m) {
