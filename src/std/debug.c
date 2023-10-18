@@ -25,6 +25,7 @@
 #	include <sys/wait.h>
 #	include <sys/user.h>
 #	include <signal.h>
+#	include <errno.h>
 #	define USE_PTRACE
 #endif
 
@@ -63,6 +64,77 @@ static void CleanHandles() {
 }
 #endif
 
+#define STATUS_TIMEOUT -1
+#define STATUS_EXIT 0
+#define STATUS_BREAKPOINT 1
+#define STATUS_SINGLESTEP 2
+#define STATUS_ERROR 3
+#define STATUS_HANDLED 4
+#define STATUS_STACKOVERFLOW 5
+
+#ifdef USE_PTRACE
+#include <semaphore.h>
+#include <pthread.h>
+
+#define PTRACE_MAX_CONTEXTS 8
+
+struct ptrace_context {
+	int pid;
+	int status;
+	int tid;
+	bool has_event;
+	pthread_mutex_t mutex;
+	pthread_cond_t cond;
+	pthread_t thread;
+};
+
+static struct ptrace_context ptrace_contexts[PTRACE_MAX_CONTEXTS] = {0};
+
+static struct ptrace_context *ptrace_find_context(int pid) {
+	for(int i = 0; i < PTRACE_MAX_CONTEXTS; i++) {
+		if(ptrace_contexts[i].pid == pid) {
+			return &ptrace_contexts[i];
+		}
+	}
+	return NULL;
+}
+
+static void *ptrace_thread_callback(void* data) {
+	struct ptrace_context *ctx = data;
+	while(true) {
+		int status = 0;
+		int thread_id = waitpid(ctx->pid, &status, 0);
+		pthread_mutex_lock(&ctx->mutex);
+		if(thread_id == -1) {
+			ctx->status = STATUS_ERROR;
+		} else {
+			ctx->tid = thread_id;
+			if( WIFEXITED(status) ) {
+				ctx->status = STATUS_EXIT;
+			} else if( WIFSTOPPED(status) ) {
+				int sig = WSTOPSIG(status);
+				if( sig == SIGSTOP || sig == SIGTRAP ) {
+					ctx->status = STATUS_BREAKPOINT;
+				} else {
+					ctx->status = STATUS_ERROR;
+				}
+			} else {
+				ctx->status = STATUS_HANDLED;
+			}
+		}
+		ctx->has_event = true;
+		pthread_cond_signal(&ctx->cond);
+		pthread_cond_wait(&ctx->cond, &ctx->mutex);
+		if(ctx->status == STATUS_EXIT) {
+			pthread_mutex_unlock(&ctx->mutex);
+			return NULL;
+		}
+		pthread_mutex_unlock(&ctx->mutex);
+	}
+	return NULL;
+}
+#endif
+
 HL_API bool hl_debug_start( int pid ) {
 #	if defined(HL_WIN)
 	last_pid = -1;
@@ -70,7 +142,31 @@ HL_API bool hl_debug_start( int pid ) {
 #	elif defined(MAC_DEBUG)
 	return mdbg_session_attach(pid);
 #	elif defined(USE_PTRACE)
-	return ptrace(PTRACE_ATTACH,pid,0,0) >= 0;
+	bool ret = ptrace(PTRACE_ATTACH,pid,0,0) >= 0;
+	if(ret) {
+		for(int i = 0; i < PTRACE_MAX_CONTEXTS; i++) {
+			if(ptrace_contexts[i].pid == 0) {
+				struct ptrace_context *ctx = &ptrace_contexts[i];
+				ctx->pid = pid;
+				ctx->status = STATUS_HANDLED;
+				ctx->tid = 0;
+				pthread_mutexattr_t mutexattr;
+				pthread_mutexattr_init(&mutexattr);
+				pthread_mutex_init(&ctx->mutex, &mutexattr);
+				pthread_mutexattr_destroy(&mutexattr);
+				pthread_condattr_t condattr;
+				pthread_condattr_init(&condattr);
+				pthread_cond_init(&ctx->cond, &condattr);
+				pthread_condattr_destroy(&condattr);
+				pthread_attr_t attr;
+				pthread_attr_init(&attr);
+				pthread_create(&ctx->thread, &attr, ptrace_thread_callback, ctx);
+				pthread_attr_destroy(&attr);
+				return true;
+			}
+		}
+	}
+	return false;
 #	else
 	return false;
 #	endif
@@ -84,6 +180,17 @@ HL_API bool hl_debug_stop( int pid ) {
 #	elif defined(MAC_DEBUG)
 	return mdbg_session_detach(pid);
 #	elif defined(USE_PTRACE)
+	for(int i = 0; i < PTRACE_MAX_CONTEXTS; i++) {
+		if(ptrace_contexts[i].pid == pid) {
+			struct ptrace_context *ctx = &ptrace_contexts[i];
+			ctx->pid = 0;
+			ctx->status = STATUS_HANDLED;
+			ctx->tid = 0;
+			pthread_mutex_destroy(&ctx->mutex);
+			pthread_cond_destroy(&ctx->cond);
+			pthread_kill(ctx->thread, SIGKILL);
+		}
+	}
 	return ptrace(PTRACE_DETACH,pid,0,0) >= 0;
 #	else
 	return false;
@@ -247,20 +354,53 @@ HL_API int hl_debug_wait( int pid, int *thread, int timeout ) {
 #	elif defined(MAC_DEBUG)
 	return mdbg_session_wait(pid, thread, timeout);
 #	elif defined(USE_PTRACE)
-	int status;
-	int ret = waitpid(pid,&status,0);
-	//printf("WAITPID=%X %X\n",ret,status);
-	*thread = ret;
-	if( WIFEXITED(status) )
-		return 0;
-	if( WIFSTOPPED(status) ) {
-		int sig = WSTOPSIG(status);
-		//printf(" STOPSIG=%d\n",sig);
-		if( sig == SIGSTOP || sig == SIGTRAP )
-			return 1;
-		return 3;
+	struct ptrace_context *ctx = ptrace_find_context(pid);
+	if(ctx == NULL) {
+		return STATUS_ERROR;
 	}
-	return 4;
+	pthread_mutex_lock(&ctx->mutex);
+	if(!ctx->has_event) {
+		if(timeout == 0) {
+			pthread_cond_wait(&ctx->cond, &ctx->mutex);
+		} else {
+			struct timespec spec;
+			clock_gettime(CLOCK_REALTIME, &spec);
+			spec.tv_sec += timeout / 1000;
+			spec.tv_nsec += (timeout % 1000) * 1000000;
+			if(pthread_cond_timedwait(&ctx->cond, &ctx->mutex, &spec) < 0) {
+				return STATUS_TIMEOUT;
+			}
+		}
+	}
+	*thread = ctx->tid;
+	int status = ctx->status;
+	if(status == STATUS_BREAKPOINT) {
+		// detect and reset the singlestep flag
+		// to match windows and macos behaviour
+		size_t reg = offsetof(struct user_regs_struct, eflags);
+		errno = 0;
+		size_t flags = (size_t)ptrace(PTRACE_PEEKUSER, ctx->tid, reg , 0);
+
+		if(errno != 0) {
+			printf("PTRACE_PEEKUSER failed!\n");
+			printf("errno: %i, pid: %i\n", errno, ctx->pid);
+			fflush(stdout);
+		} else if((flags & 0x100) != 0) {
+			flags &= ~0x100;
+			if(ptrace(PTRACE_POKEUSER, ctx->tid, reg, flags) < 0) {
+				printf("PTRACE_POKEUSER failed!\n");
+				fflush(stdout);
+			} else {
+				ctx->status = status = STATUS_SINGLESTEP;
+			}
+		}
+	}
+	pthread_mutex_unlock(&ctx->mutex);
+	if(ctx->has_event) {
+		ctx->has_event = false;
+		pthread_cond_signal(&ctx->cond);
+	}
+	return status;
 #	else
 	return 0;
 #	endif
