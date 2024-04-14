@@ -219,12 +219,12 @@ static void gc_save_context(hl_thread_info *t, void *prev_stack ) {
 	// All calls are passing a pointer to a bool, which is aligned on 1 byte
 	// If pointer is wrongly aligned, the extra_stack_data is misaligned
 	// and register pointers save in stack will not be discovered correctly by the GC
-	uintptr_t aligned_prev_stack = ((uintptr_t)prev_stack) & ~(sizeof(void*) - 1);
-	prev_stack = (void*)aligned_prev_stack;
-	int size = (int)((char*)prev_stack - (char*)stack_cur) / sizeof(void*);
-	if( size > HL_MAX_EXTRA_STACK ) hl_fatal("GC_SAVE_CONTEXT");
-	t->extra_stack_size = size;
-	memcpy(t->extra_stack_data, prev_stack, size*sizeof(void*));
+	// uintptr_t aligned_prev_stack = ((uintptr_t)prev_stack) & ~(sizeof(void*) - 1);
+	// prev_stack = (void*)aligned_prev_stack;
+	// int size = (int)((char*)prev_stack - (char*)stack_cur) / sizeof(void*);
+	// if( size > HL_MAX_EXTRA_STACK ) hl_fatal("GC_SAVE_CONTEXT");
+	// t->extra_stack_size = size;
+	// memcpy(t->extra_stack_data, prev_stack, size*sizeof(void*));
 }
 
 #ifndef HL_THREADS
@@ -252,8 +252,10 @@ HL_PRIM void hl_add_root( void *r ) {
 	if( gc_roots_count == gc_roots_max ) {
 		int nroots = gc_roots_max ? (gc_roots_max << 1) : 16;
 		void ***roots = (void***)malloc(sizeof(void*)*nroots);
-		memcpy(roots,gc_roots,sizeof(void*)*gc_roots_count);
-		free(gc_roots);
+		if(gc_roots != NULL) {
+			memcpy(roots,gc_roots,sizeof(void*)*gc_roots_count);
+			free(gc_roots);
+		}
 		gc_roots = roots;
 		gc_roots_max = nroots;
 	}
@@ -299,7 +301,9 @@ HL_API void hl_register_thread( void *stack_top ) {
 
 	gc_global_lock(true);
 	hl_thread_info **all = (hl_thread_info**)malloc(sizeof(void*) * (gc_threads.count + 1));
-	memcpy(all,gc_threads.threads,sizeof(void*)*gc_threads.count);
+	if(gc_threads.threads != NULL) {
+		memcpy(all,gc_threads.threads,sizeof(void*)*gc_threads.count);
+	}
 	gc_threads.threads = all;
 	all[gc_threads.count++] = t;
 	gc_global_lock(false);

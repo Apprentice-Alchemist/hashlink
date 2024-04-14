@@ -231,24 +231,30 @@ int main(int argc, pchar *argv[]) {
 	setup_handler();
 	hl_profile_setup(profile_count);
 	// ctx.ret = hl_dyn_call_safe(&cl,NULL,0,&isExc);
+	hl_trap_ctx trap;
+	vdynamic *exc;
+	hl_trap(trap, exc, on_exception);
 	((void(*)())cl.fun)();
 
 	hl_profile_end();
-	if( isExc ) {
-		varray *a = hl_exception_stack();
-		int i;
-		uprintf(USTR("Uncaught exception: %s\n"), hl_to_string(ctx.ret));
-		for(i=0;i<a->size;i++)
-			uprintf(USTR("Called from %s\n"), hl_aptr(a,uchar*)[i]);
-		hl_debug_break();
-		hl_global_free();
-		return 1;
-	}
+	// if( isExc ) {
+
+	// }
 	hl_module_free(ctx.m);
 	hl_free(&ctx.code->alloc);
 	// do not call hl_unregister_thread() or hl_global_free will display error 
 	// on global_lock if there are threads that are still running (such as debugger)
 	hl_global_free();
 	return 0;
+on_exception:{
+	varray *a = hl_exception_stack();
+	int i;
+	uprintf(USTR("Uncaught exception: %s\n"), hl_to_string(exc));
+		for (i = 0; i < a->size; i++)
+			uprintf(USTR("Called from %s\n"), hl_aptr(a, uchar *)[i]);
+		hl_debug_break();
+		hl_global_free();
+		return 1;
+	}
 }
 

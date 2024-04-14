@@ -677,6 +677,13 @@ const char *hl_sys_special( const char *key ) {
 DEFINE_PRIM(_BYTES, sys_special, _BYTES);
 #endif
 
+HL_API void hl_foo(int arg) {
+	printf("FOO: %i!\n\n", arg);
+	// fflush(stdout);
+}
+
+DEFINE_PRIM(_VOID, foo, _I32);
+
 DEFINE_PRIM(_BYTES, sys_hl_file, _NO_ARG);
 DEFINE_PRIM(_BOOL, sys_utf8_path, _NO_ARG);
 DEFINE_PRIM(_BYTES, sys_string, _NO_ARG);

@@ -74,7 +74,7 @@ static double hl_read_double( hl_reader *r ) {
 }
 
 static int hl_read_i32( hl_reader *r ) {
-	unsigned char a, b, c, d;
+	unsigned int a, b, c, d;
 	if( r->pos + 4 > r->size ) {
 		ERROR("No more data");
 		return 0;
@@ -83,7 +83,7 @@ static int hl_read_i32( hl_reader *r ) {
 	b = r->b[r->pos++];
 	c = r->b[r->pos++];
 	d = r->b[r->pos++];
-	return a | (b<<8) | (c<<16) | (d<<24);
+	return (int)(unsigned int)(a | (b<<8) | (c<<16) | (d<<24));
 }
 
 static int hl_read_index( hl_reader *r ) {

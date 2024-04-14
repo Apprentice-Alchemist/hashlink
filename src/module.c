@@ -20,6 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 #include <hl.h>
+#include <assert.h>
 #include <hlmodule.h>
 
 #ifdef HL_WIN

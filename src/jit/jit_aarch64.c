@@ -278,7 +278,7 @@ static void emit_adr(jit_ctx *ctx, CpuOp cop, uint64_t imm, preg *d) {
     op = 1;
     break;
   default:
-    ASSERT(cop);
+    ERROR("invalid adr op: %i", cop);
   }
 
   if (ctx->dump_file) {
@@ -316,7 +316,7 @@ static void emit_ari_imm(jit_ctx *ctx, CpuOp cop, bool is64, int32_t imm,
     S = 1;
     break;
   default:
-    ASSERT(cop);
+    ERROR("invalid ari imm op: %i", cop);
   }
 
   if (ctx->dump_file) {
@@ -371,7 +371,7 @@ static void emit_movw_imm(jit_ctx *ctx, CpuOp cop, bool is64, int64_t imm,
     opc = 3;
     break;
   default:
-    ASSERT(cop);
+    ERROR("invalid movw imm op: %i", cop);
   }
 
   if (ctx->dump_file)
@@ -414,7 +414,7 @@ const char *cond_to_string(CondCode cond) {
   case AL:
     return "al";
   default:
-    ASSERT(cond);
+    ERROR("invalid condition code: %i", cond);
   }
 }
 
@@ -468,7 +468,7 @@ static void emit_uncond_branch_reg(jit_ctx *ctx, CpuOp cop, preg *n) {
     W(0xD65F0000 | ((n->id) << 5));
     break;
   default:
-    ASSERT(cop);
+    ERROR("invalid uncond branch reg op: %i", cop);
   }
   if (ctx->dump_file)
     fprintf(ctx->dump_file, "br %i\n", n->id);
@@ -488,7 +488,7 @@ static void emit_uncond_branch_imm(jit_ctx *ctx, CpuOp cop, uint64_t imm) {
     W(0x94000000 | imm);
     break;
   default:
-    ASSERT(cop);
+    ERROR("invalid uncond branch imm op: %i", cop);
   }
 }
 
@@ -511,7 +511,7 @@ static void emit_data_proc_rrr(jit_ctx *ctx, CpuOp cop, bool is64, preg *dst,
     o0 = 1;
     break;
   default:
-    ASSERT(cop);
+    ERROR("invalid data proc rrr op: %i", cop);
   }
   W(0x1B000000 | (sf << 31) | (op54 << 29) | (op31 << 21) | (m->id << 16) |
     (o0 << 15) | (a->id << 10) | (n->id << 5) | dst->id);
@@ -548,7 +548,7 @@ static void emit_data_proc_rr(jit_ctx *ctx, CpuOp cop, bool is64,
     opcode = 11;
     break;
   default:
-    ASSERT(cop);
+    ERROR("invalid data proc rr op: %i", cop);
   }
   if (ctx->dump_file) {
     fprintf(ctx->dump_file, "data_proc_rr %i, %i, %i, %i\n", sf, S, opcode,
@@ -563,8 +563,8 @@ static void emit_data_proc_r(jit_ctx *ctx, CpuOp cop, bool is64) {
 
 typedef enum ShiftType { LSL = 0, LSR = 1, ASR = 2, ROR = 3 } ShiftType;
 
-static void emit_log_shift_reg(jit_ctx *ctx, CpuOp cop, bool is64, preg *m,
-                               preg *n, preg *d, ShiftType shift,
+static void emit_log_shift_reg(jit_ctx *ctx, CpuOp cop, bool is64, preg *d,
+                               preg *m, preg *n, ShiftType shift,
                                uint32_t amount) {
   uint32_t sf = is64 ? 1 : 0;
   uint32_t opc;
@@ -605,7 +605,7 @@ static void emit_log_shift_reg(jit_ctx *ctx, CpuOp cop, bool is64, preg *m,
     N = 1;
     break;
   default:
-    ASSERT(cop);
+    ERROR("invalid log shift reg op: %i", cop);
   }
   if (ctx->dump_file) {
     fprintf(ctx->dump_file, "%s %i, %i, %i, %i, %i, %i,\n", op_to_string(cop),
@@ -641,7 +641,7 @@ static void emit_ari_shift_reg(jit_ctx *ctx, CpuOp cop, bool is64, preg *d,
     S = 1;
     break;
   default:
-    ASSERT(cop);
+    ERROR("invalid ari shift reg op: %i", cop);
   }
   if (ctx->dump_file) {
     fprintf(ctx->dump_file, "%s %i, %i, %i, %i, %i, %i,\n", op_to_string(cop),
@@ -704,7 +704,7 @@ static void emit_mov_rr(jit_ctx *ctx, bool is64, preg *r, preg *d) {
   if (r->id == 31 || d->id == SP) {
     emit_ari_imm(ctx, ADD, true, 0, r, d);
   } else {
-    emit_log_shift_reg(ctx, ORR, is64, r, REG_AT(ZR), d, LSL, 0);
+    emit_log_shift_reg(ctx, ORR, is64, d, r, REG_AT(ZR), LSL, 0);
   }
 }
 
@@ -1101,8 +1101,6 @@ static void start_call(jit_ctx *ctx) {
 static void end_call(jit_ctx *ctx, int stack_size) {
   if (stack_size > 0)
     emit_ari_imm(ctx, ADD, true, stack_size, REG_AT(SP), REG_AT(SP));
-  // emit_log_shift_reg(ctx, ORR, true, REG_AT(ZR), REG_AT(ZR), REG_AT(30), LSL,
-  // 0);
   ctx->calling = false;
 }
 // R30 is the link register
@@ -1448,7 +1446,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       if (ctx->dump_file)
         fprintf(ctx->dump_file, "ONull r%i\n", o->p1);
       preg *pdst = fetch(ctx, dst, false);
-      emit_log_shift_reg(ctx, ORR, true, REG_AT(ZR), REG_AT(ZR), pdst, LSL, 0);
+      emit_log_shift_reg(ctx, ORR, true, pdst, REG_AT(ZR), REG_AT(ZR), LSL, 0);
       break;
     }
 
@@ -1491,50 +1489,61 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
                           fetch(ctx, dst, false), fetch(ctx, R(o->p2), true),
                           fetch(ctx, R(o->p3), true));
     } else {
-      emit_brk(ctx, o->op);
+        emit_data_proc_rr(ctx, SDIV, dst->t->kind == HI64,
+                          fetch(ctx, dst, false), fetch(ctx, R(o->p2), true),
+                          fetch(ctx, R(o->p3), true));
     }
       break;
     case OUDiv:
-      emit_brk(ctx, o->op);
+      emit_data_proc_rr(ctx, SDIV, dst->t->kind == HI64, fetch(ctx, dst, false),
+                        fetch(ctx, R(o->p2), true), fetch(ctx, R(o->p3), true));
       break;
-    case OSMod:
-      emit_brk(ctx, o->op);
+    case OSMod:{
+      preg *tmp = alloc_register(ctx, RCPU);
+      preg *num = fetch(ctx, R(o->p2), true);
+      preg *m = fetch(ctx, R(o->p3), true);
+      emit_data_proc_rr(ctx, SDIV, dst->t->kind == HI64, tmp, num, m);
+      emit_data_proc_rrr(ctx, MSUB, dst->t->kind == HI64, fetch(ctx, dst, false), tmp, m, num);
       break;
-    case OUMod:
-      emit_brk(ctx, o->op);
-      break;
+    }
+    case OUMod:{
+      preg *tmp = alloc_register(ctx, RCPU);
+      preg *num = fetch(ctx, R(o->p2), true);
+      preg *m = fetch(ctx, R(o->p3), true);
+      emit_data_proc_rr(ctx, UDIV, dst->t->kind == HI64, tmp, num, m);
+      emit_data_proc_rrr(ctx, MSUB, dst->t->kind == HI64,
+                         fetch(ctx, dst, false), tmp, m, num);
+      break;}
     case OShl:
-      if (T_IS_FLOAT(R(o->p2)->t->kind)) {
-        emit_brk(ctx, o->op);
-      } else {
         emit_data_proc_rr(ctx, LSLV, false, fetch(ctx, dst, false), fetch(ctx, R(o->p2), true),
                           fetch(ctx, R(o->p3), true));
-      }
+      
       break;
     case OSShr:
-      if (T_IS_FLOAT(R(o->p2)->t->kind)) {
-        emit_brk(ctx, o->op);
-      } else {
         emit_data_proc_rr(ctx, ASRV, false, fetch(ctx, dst, false), fetch(ctx, R(o->p2), true),
                           fetch(ctx, R(o->p3), true));
-      }
+      
       break;
     case OUShr:
-      if (T_IS_FLOAT(R(o->p2)->t->kind)) {
-        emit_brk(ctx, o->op);
-      } else {
         emit_data_proc_rr(ctx, LSRV, false, fetch(ctx, dst, false), fetch(ctx, R(o->p2), true),
                           fetch(ctx, R(o->p3), true));
-      }
+      
       break;
     case OAnd:
-      emit_brk(ctx, o->op);
+      emit_log_shift_reg(ctx, AND, dst->t->kind == HI64, fetch(ctx, dst, false),
+                         fetch(ctx, R(o->p2), true),
+                         fetch(ctx, R(o->p3), true), LSL,
+                         0);
       break;
     case OOr:
-      emit_brk(ctx, o->op);
+      emit_log_shift_reg(ctx, ORR, dst->t->kind == HI64, fetch(ctx, dst, false),
+                         fetch(ctx, R(o->p2), true), fetch(ctx, R(o->p3), true),
+                         LSL, 0);
       break;
     case OXor:
-      emit_brk(ctx, o->op);
+      emit_log_shift_reg(ctx, EOR, dst->t->kind == HI64, fetch(ctx, dst, false),
+                         fetch(ctx, R(o->p2), true), fetch(ctx, R(o->p3), true),
+                         LSL, 0);
       break;
 
     case ONeg:
@@ -1549,8 +1558,8 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
       break;
     case ONot:
       emit_log_shift_reg(ctx, ORN, R(o->p2)->t->kind != HI32,
-                         fetch(ctx, R(o->p2), true), REG_AT(ZR),
-                         fetch(ctx, dst, false), LSL, 0);
+                         fetch(ctx, dst, false), fetch(ctx, R(o->p2), true),
+                         REG_AT(ZR), LSL, 0);
       break;
     case OIncr:
       emit_ari_imm(ctx, ADD, false, 1, fetch(ctx, dst, true),
@@ -1872,7 +1881,7 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
           size_t jnz = BUF_POS();
           emit_cond_branch(ctx, NE, 0);
           scratch(ctx, REG_AT(0), true);
-          emit_log_shift_reg(ctx, ORR, true, REG_AT(ZR), REG_AT(ZR), REG_AT(0),
+          emit_log_shift_reg(ctx, ORR, true, REG_AT(0), REG_AT(ZR), REG_AT(ZR),
                              LSL, 0);
           jskip = BUF_POS();
           emit_uncond_branch_imm(ctx, B, 0);
@@ -2069,9 +2078,15 @@ int hl_jit_function(jit_ctx *ctx, hl_module *m, hl_function *f) {
     case OMakeEnum:
       emit_brk(ctx, o->op);
       break;
-    case OEnumAlloc:
-      emit_brk(ctx, o->op);
+    case OEnumAlloc: {
+      vreg *dst = R(o->p1);
+      intptr_t args[2] = {
+        (intptr_t)dst->t,
+        o->p2
+      };
+      call_native_consts(ctx, dst, (intptr_t)hl_alloc_enum, 2, args);
       break;
+    }
     case OEnumIndex:
       emit_brk(ctx, o->op);
       break;

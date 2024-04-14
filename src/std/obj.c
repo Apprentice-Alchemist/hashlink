@@ -99,7 +99,7 @@ HL_PRIM int hl_hash_utf8( const char *name ) {
 }
 
 HL_PRIM int hl_hash_gen( const uchar *name, bool cache_name ) {
-	int h = 0;
+	unsigned h = 0;
 	const uchar *oname = name;
 	while( *name ) {
 		h = 223 * h + (unsigned)*name;
@@ -120,7 +120,9 @@ HL_PRIM int hl_hash_gen( const uchar *name, bool cache_name ) {
 				// resize
 				int newsize = hl_cache_size ? (hl_cache_size * 3) >> 1 : 16;
 				hl_field_lookup *cache = (hl_field_lookup*)malloc(sizeof(hl_field_lookup) * newsize);
-				memcpy(cache,hl_cache,sizeof(hl_field_lookup) * hl_cache_count);
+				if(hl_cache != NULL) {
+					memcpy(cache,hl_cache,sizeof(hl_field_lookup) * hl_cache_count);
+				}
 				free(hl_cache);
 				hl_cache = cache;
 				hl_cache_size = newsize;
