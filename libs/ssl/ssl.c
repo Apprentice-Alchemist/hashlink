@@ -97,9 +97,9 @@ static int real_ssl_error(int ret) {
 }
 
 #define ssl_error(ret)                                                         \
-  printf("SSL error in %s at %s:%i", __func__, __FILE__, __LINE__);                 \
+  { printf("SSL error in %s at %s:%i", __func__, __FILE__, __LINE__);                 \
   fflush(stdout); \
-  real_ssl_error(ret);
+  real_ssl_error(ret); }
 
 HL_PRIM mbedtls_ssl_context *HL_NAME(ssl_new)(mbedtls_ssl_config *config) {
 	int ret;
@@ -126,7 +126,7 @@ HL_PRIM int HL_NAME(ssl_handshake)(mbedtls_ssl_context *ssl) {
 	if( r == MBEDTLS_ERR_SSL_CONN_EOF )
 		return -2;
 	if( r != 0 )
-		return ssl_error(r);
+		ssl_error(r);
 	return 0;
 }
 
@@ -708,7 +708,7 @@ HL_PRIM bool HL_NAME(dgst_verify)(vbyte *data, int dlen, vbyte *sign, int slen, 
 	}
 
 	if ((r = mbedtls_md(md, (const unsigned char *)data, dlen, hash)) != 0)
-		return ssl_error(r);
+		ssl_error(r);
 
 	if ((r = mbedtls_pk_verify(key->k, mbedtls_md_get_type(md), hash, 0, (unsigned char *)sign, slen)) != 0)
 		return false;
