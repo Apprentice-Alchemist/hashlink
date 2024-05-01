@@ -22,7 +22,7 @@ typedef int SOCKET;
 #define SOCKET_ERROR (-1)
 #define NRETRYS	20
 
-#include "mbedtls/platform.h"
+#include "mbedtls/debug.h"
 #include "mbedtls/error.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
@@ -235,6 +235,11 @@ DEFINE_PRIM(_I32, ssl_send, TSSL _BYTES _I32 _I32);
 DEFINE_PRIM(_I32, ssl_recv_char, TSSL);
 DEFINE_PRIM(_I32, ssl_recv, TSSL _BYTES _I32 _I32);
 
+static void ssl_debug(void*ctx, int level, const char *file, int line_number, const char *message) {
+	printf("MBEDTLS: %s:%i: %s", file, line_number, message);
+	fflush(stdout);
+}
+
 HL_PRIM mbedtls_ssl_config *HL_NAME(conf_new)(bool server) {
 	int ret;
 	mbedtls_ssl_config *conf;
@@ -247,6 +252,8 @@ HL_PRIM mbedtls_ssl_config *HL_NAME(conf_new)(bool server) {
 		return NULL;
 	}
 	mbedtls_ssl_conf_rng(conf, mbedtls_ctr_drbg_random, &ctr_drbg);
+	mbedtls_debug_set_threshold(1);
+	mbedtls_ssl_conf_dbg(conf, ssl_debug, NULL);
 	return conf;
 }
 
