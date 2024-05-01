@@ -87,7 +87,7 @@ static void pkey_finalize(hl_ssl_pkey *k) {
 	k->k = NULL;
 }
 
-static int ssl_error(int ret) {
+static int real_ssl_error(int ret) {
 	char buf[128];
 	uchar buf16[128];
 	mbedtls_strerror(ret, buf, sizeof(buf));
@@ -95,6 +95,11 @@ static int ssl_error(int ret) {
 	hl_error("%s",buf16);
 	return ret;
 }
+
+#define ssl_error(ret)                                                         \
+  printf("SSL error in %s at %s:%i", __func__, __FILE__, __LINE__);                 \
+  fflush(stdout); \
+  real_ssl_error(ret);
 
 HL_PRIM mbedtls_ssl_context *HL_NAME(ssl_new)(mbedtls_ssl_config *config) {
 	int ret;
