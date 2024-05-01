@@ -245,7 +245,7 @@ jobs:
             ./hl hello.hl
 
             haxe -hl https.hl -cp other/tests -main Https
-            ./hl https.Hl
+            ./hl https.hl
 
             haxe -hl src/_main.c -cp other/tests -main HelloWorld
             make hlc
