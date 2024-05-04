@@ -22,6 +22,7 @@
 
 package sys;
 
+import haxe.io.Error;
 import haxe.io.BytesOutput;
 import haxe.io.Bytes;
 import haxe.io.Input;
@@ -310,6 +311,9 @@ class Http extends haxe.http.HttpBase {
 					p += sock.input.readBytes(s, p, k - p);
 				}
 				catch (e:haxe.io.Eof) { }
+				catch(e:Error) {
+					if(e == Blocked) continue else throw e;
+				}
 			}
 			b.addBytes(s, 0, k);
 			switch (k) {
