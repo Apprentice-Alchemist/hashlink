@@ -150,9 +150,9 @@ static int net_read(void *fd, unsigned char *buf, size_t len) {
 	int r = recv((SOCKET)(int_val)fd, (char *)buf, (int)len, MSG_NOSIGNAL);
 	if( r == SOCKET_ERROR && is_block_error() ) {
 		printf("net_read: WANT_READ\n");
-		#ifndef HL_MAC
+#ifndef HL_WIN
 		printf("errno: %i\n", errno);
-		#endif
+#endif
 		fflush(stdout);
 		return MBEDTLS_ERR_SSL_WANT_READ;
 	}
@@ -161,8 +161,14 @@ static int net_read(void *fd, unsigned char *buf, size_t len) {
 
 static int net_write(void *fd, const unsigned char *buf, size_t len) {
 	int r = send((SOCKET)(int_val)fd, (char *)buf, (int)len, MSG_NOSIGNAL);
-	if( r == SOCKET_ERROR && is_block_error() )
-		return MBEDTLS_ERR_SSL_WANT_WRITE;
+	if( r == SOCKET_ERROR && is_block_error() ) {
+          printf("net_write: WANT_WRITE\n");
+#ifndef HL_WIN
+          printf("errno: %i\n", errno);
+#endif
+          fflush(stdout);
+          return MBEDTLS_ERR_SSL_WANT_WRITE;
+	}
 	return r;
 }
 
