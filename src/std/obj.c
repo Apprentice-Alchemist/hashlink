@@ -983,6 +983,20 @@ HL_PRIM void *hl_dyn_getp( vdynamic *d, int hfield, hl_type *t ) {
 	return hl_same_type(t,ft) ? *(void**)addr : hl_dyn_castp(addr,ft,t);
 }
 
+HL_PRIM void *hl_dyn_get_ref(vdynamic *d, int hfield, hl_type *t) {
+	hl_type *ft ;
+	void *addr = hl_obj_lookup(d, hfield, &ft);
+	if(!addr) {
+		hl_error("Failed to take reference to dyn field");
+	}
+	if (!hl_same_type(t, ft)) {
+		hl_error("Reference type must match field type");
+	}
+	// method and dynamic fields are ignored for the purpose of reference taking
+	// so hl_obj_lookup_extra is not used here
+	return addr;
+}
+
 // -------------------- DYNAMIC SET ------------------------------------
 
 static void *hl_obj_lookup_set( vdynamic *d, int hfield, hl_type *t, hl_type **ft ) {
