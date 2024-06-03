@@ -636,6 +636,7 @@ HL_API int64 hl_dyn_geti64( vdynamic *d, int hfield );
 HL_API void *hl_dyn_getp( vdynamic *d, int hfield, hl_type *t );
 HL_API float hl_dyn_getf( vdynamic *d, int hfield );
 HL_API double hl_dyn_getd( vdynamic *d, int hfield );
+HL_API void *hl_dyn_get_ref(vdynamic *d, int hfield, hl_type *t);
 
 HL_API int hl_dyn_casti( void *data, hl_type *t, hl_type *to );
 HL_API int64 hl_dyn_casti64( void *data, hl_type *t );

@@ -3504,6 +3504,65 @@ int hl_jit_function( jit_ctx *ctx, hl_module *m, hl_function *f ) {
 				}
 			}
 			break;
+		case OFieldRef:
+			{
+				switch( ra->t->kind ) {
+				case HOBJ:
+				case HSTRUCT:
+					{
+						hl_runtime_obj *rt = hl_get_obj_rt(ra->t);
+						preg *rr = alloc_cpu(ctx,ra, true);
+						if( dst->t->kind == HSTRUCT ) {
+							hl_type *ft = hl_obj_field_fetch(ra->t,o->p3)->t;
+							if( ft->kind == HPACKED ) {
+								jit_error("references to packed fields are not supported");
+								break;
+							}
+						}
+						preg *r = alloc_reg(ctx,RCPU);
+						op64(ctx,LEA,r,pmem(&p,(CpuReg)rr->id,rt->fields_indexes[o->p3]));
+						store(ctx,dst,r,true);
+					}
+					break;
+				case HVIRTUAL:
+					// ASM for --> if( hl_vfields(o)[f] ) r = hl_vfields(o)[f]; else r = hl_dyn_get_ref(o,hash(field))
+					{
+						int jhasfield, jend, size;
+						preg *v = alloc_cpu_call(ctx,ra);
+						preg *r = alloc_reg(ctx,RCPU);
+						op64(ctx,MOV,r,pmem(&p,v->id,sizeof(vvirtual)+HL_WSIZE*o->p3));
+						op64(ctx,TEST,r,r);
+						XJump_small(JNotZero,jhasfield);
+						size = begin_native_call(ctx, 3);
+						set_native_arg(ctx,pconst64(&p, (int_val)dst->t->tparam));
+						set_native_arg(ctx,pconst64(&p,(int_val)ra->t->virt->fields[o->p3].hashed_name));
+						set_native_arg(ctx,v);
+						call_native(ctx,hl_dyn_get_ref,size);
+						store_result(ctx,dst);
+						XJump_small(JAlways,jend);
+						patch_jump(ctx,jhasfield);
+						copy_to(ctx, dst, r);
+						patch_jump(ctx,jend);
+						scratch(dst->current);
+					}
+					break;
+				case HDYN:
+					{
+						preg *v = alloc_cpu_call(ctx,ra);
+						int size = begin_native_call(ctx, 3);
+						set_native_arg(ctx,pconst64(&p, (int_val)dst->t->tparam));
+						set_native_arg(ctx,pconst64(&p,(int_val)hl_hash_utf8(m->code->strings[o->p3])));
+						set_native_arg(ctx,v);
+						call_native(ctx,hl_dyn_get_ref,size);
+						store_result(ctx,dst);
+					}
+					break;
+				default:
+					ASSERT(ra->t->kind);
+					break;
+				}
+			}
+			break;
 		case OSetField:
 			{
 				switch( dst->t->kind ) {
