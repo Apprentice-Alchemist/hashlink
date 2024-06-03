@@ -3490,6 +3490,32 @@ int hl_jit_function( jit_ctx *ctx, hl_module *m, hl_function *f ) {
 				}
 			}
 			break;
+		case OFieldRef:
+			{
+				switch( ra->t->kind ) {
+				case HOBJ:
+				case HSTRUCT:
+					{
+						hl_runtime_obj *rt = hl_get_obj_rt(ra->t);
+						preg *rr = alloc_cpu(ctx,ra, true);
+						if( dst->t->kind == HSTRUCT ) {
+							hl_type *ft = hl_obj_field_fetch(ra->t,o->p3)->t;
+							if( ft->kind == HPACKED ) {
+								jit_error("references to packed fields are not supported");
+								break;
+							}
+						}
+						preg *r = alloc_reg(ctx,RCPU);
+						op64(ctx,LEA,r,pmem(&p,(CpuReg)rr->id,rt->fields_indexes[o->p3]));
+						store(ctx,dst,r,true);
+					}
+					break;
+				default:
+					ASSERT(ra->t->kind);
+					break;
+				}
+			}
+			break;
 		case OSetField:
 			{
 				switch( dst->t->kind ) {
