@@ -3519,7 +3519,8 @@ int hl_jit_function( jit_ctx *ctx, hl_module *m, hl_function *f ) {
 						op64(ctx,MOV,r,pmem(&p,v->id,sizeof(vvirtual)+HL_WSIZE*o->p3));
 						op64(ctx,TEST,r,r);
 						XJump_small(JNotZero,jhasfield);
-						size = begin_native_call(ctx, 2);
+						size = begin_native_call(ctx, 3);
+						set_native_arg(ctx,pconst64(&p, (int_val)dst->t->tparam));
 						set_native_arg(ctx,pconst64(&p,(int_val)ra->t->virt->fields[o->p3].hashed_name));
 						set_native_arg(ctx,v);
 						call_native(ctx,hl_dyn_get_ref,size);
@@ -3534,7 +3535,8 @@ int hl_jit_function( jit_ctx *ctx, hl_module *m, hl_function *f ) {
 				case HDYN:
 					{
 						preg *v = alloc_cpu_call(ctx,ra);
-						int size = begin_native_call(ctx, 2);
+						int size = begin_native_call(ctx, 3);
+						set_native_arg(ctx,pconst64(&p, (int_val)dst->t->tparam));
 						set_native_arg(ctx,pconst64(&p,(int_val)hl_hash_utf8(m->code->strings[o->p3])));
 						set_native_arg(ctx,v);
 						call_native(ctx,hl_dyn_get_ref,size);
