@@ -11,7 +11,7 @@ if not mbedx509_dep.found()
 	mbedx509_dep = cc.find_library('mbedx509')
 endif
 
-ssl_deps = [libhl_dep, mbedtls_dep, mbedcrypto_dep, mbedx509_dep];
+ssl_deps = [libhl_dep, mbedtls_dep, mbedcrypto_dep, mbedx509_dep]
 
 if host_machine.system() == 'darwin'
 	ssl_deps += [dependency('appleframeworks', modules: ['Security', 'CoreFoundation'])]
