@@ -1,3 +1,4 @@
+# Mbedtls 2.x does not ship pkgconfig files so fall back to find_library.
 mbedtls_dep = dependency('mbedtls', required: false)
 if not mbedtls_dep.found()
 	mbedtls_dep = cc.find_library('mbedtls')

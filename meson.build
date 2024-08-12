@@ -4,6 +4,7 @@ thread_dep = dependency('threads')
 
 cc = meson.get_compiler('c')
 m_dep = cc.find_library('m', required: false)
+libdl_dep = cc.find_library('dl', required: false)
 
 subdir('include')
 
@@ -70,7 +71,7 @@ hl_exe = executable(
 	hl_src,
 	include_directories: hl_incdir,
 	link_with: libhl,
-	dependencies: [m_dep, thread_dep, cc.find_library('dl', required: false)],
+	dependencies: [m_dep, thread_dep, libdl_dep],
 	install: true,
 )
 

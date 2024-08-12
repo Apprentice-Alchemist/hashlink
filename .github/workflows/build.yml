@@ -201,6 +201,7 @@ jobs:
           meson)
             meson setup --prefix "/" --bindir "" --libdir "" --buildtype release build
             meson compile -C build
+            BUILD_FOLDER=build
             ;;
           make)
             make

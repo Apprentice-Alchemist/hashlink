@@ -35,7 +35,7 @@ pcre_dep = declare_dependency(
 	],
 )
 
-sqlite_dep = declare_dependency(include_directories: 'sqlite/src', sources: ['sqlite/src/sqlite3.c'])
+sqlite_dep = declare_dependency(include_directories: 'sqlite/src', sources: ['sqlite/src/sqlite3.c'], dependencies:  [thread_dep, libdl_dep])
 
 minimp3_dep = declare_dependency(include_directories: ['minimp3'])
 
