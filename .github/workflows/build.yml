@@ -201,7 +201,7 @@ jobs:
           meson)
             meson setup --prefix "/" --bindir "" --libdir "" --buildtype release build
             meson compile -C build
-
+            ;;
           make)
             make
             sudo make install
@@ -228,6 +228,7 @@ jobs:
             ;;
           meson)
             meson test -C build
+            ;;
           make)
             if [[ ${{ matrix.architecture }} != arm64 ]]; then
               ./hl --version
