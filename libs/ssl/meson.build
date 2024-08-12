@@ -4,11 +4,11 @@ if not mbedtls_dep.found()
 endif
 mbedcrypto_dep = dependency('mbedcrypto', required: false)
 if not mbedcrypto_dep.found()
-	mbedtls_dep = cc.find_library('mbedcrypto')
+	mbedcrypto_dep = cc.find_library('mbedcrypto')
 endif
 mbedx509_dep = dependency('mbedx509', required: false)
 if not mbedx509_dep.found()
-	mbedtls_dep = cc.find_library('mbedx509')
+	mbedx509_dep = cc.find_library('mbedx509')
 endif
 
 shared_library(
