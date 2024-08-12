@@ -70,7 +70,7 @@ hl_exe = executable(
 	hl_src,
 	include_directories: hl_incdir,
 	link_with: libhl,
-	dependencies: [m_dep, thread_dep],
+	dependencies: [m_dep, thread_dep, cc.find_library('dl', required: false)],
 	install: true,
 )
 
