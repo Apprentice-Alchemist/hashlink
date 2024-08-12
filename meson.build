@@ -45,7 +45,7 @@ libhl = library(
 	'hl',
 	libhl_src,
 	include_directories: [hl_incdir],
-	dependencies: [thread_dep, pcre_dep, m_dep],
+	dependencies: libhl_deps,
 	c_args: ['-DLIBHL_EXPORTS'],
 	install: true,
 )
@@ -70,7 +70,7 @@ hl_exe = executable(
 	hl_src,
 	include_directories: hl_incdir,
 	link_with: libhl,
-	dependencies: [m_dep],
+	dependencies: [m_dep, thread_dep],
 	install: true,
 )
 
