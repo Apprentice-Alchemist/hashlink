@@ -23,7 +23,7 @@ jobs:
       matrix:
         target: [linux, darwin, windows]
         architecture: [32, 64, arm64]
-        build_system: [make, cmake, vs2019]
+        build_system: [make, cmake, vs2019, meson]
 
         include:
           - target: linux
@@ -190,6 +190,9 @@ jobs:
             esac
             echo "WINDOWS_BUILD_FOLDER=$BUILD_FOLDER" >> $GITHUB_ENV
             ;;
+          meson)
+            meson setup --prefix "/" --bindir "" --libdir "" --buildtype release build
+            meson compile -C build
 
           make)
             make
@@ -215,6 +218,8 @@ jobs:
           vs2019)
             ${{ env.WINDOWS_BUILD_FOLDER }}/hl.exe --version
             ;;
+          meson)
+            meson test -C build
           make)
             if [[ ${{ matrix.architecture }} != arm64 ]]; then
               ./hl --version
@@ -260,6 +265,9 @@ jobs:
 
             echo "HASHLINK_DISTRIBUTION=bin/$dist_folder.${{ matrix.archive_ext }}" >> $GITHUB_ENV
             ;;
+          meson)
+            dist_folder=hashlink-${short_commit}-${platform_name}-meson
+            meson install -C build --destdir $dist_folder
           *)
             dist_folder=hashlink-${short_commit}-${platform_name}
             make PACKAGE_NAME=$dist_folder MARCH=${{ matrix.architecture }} release
