@@ -89,6 +89,8 @@ jobs:
 
           - target: windows
             build_system: make
+          - target: windows
+            build_system: meson
 
           - target: windows
             architecture: 32
@@ -111,6 +113,10 @@ jobs:
         # see https://github.com/Homebrew/brew/blob/master/.github/workflows/tests.yml
         brew unlink python && brew link --overwrite python
 
+    - name: Install meson
+      if: matrix.build_system == 'meson'
+      run: |
+        pip3 install meson
     - name: "Install: Required Dev Packages"
       run: |
         set -eux
@@ -127,12 +133,14 @@ jobs:
               libturbojpeg-dev \
               libuv1-dev \
               libvorbis-dev \
-              libsqlite3-dev
+              libsqlite3-dev \
+              meson
             ;;
 
           darwin*)
             brew update
             brew bundle
+            brew install meson
             ;;
 
           windows*)
@@ -268,6 +276,7 @@ jobs:
           meson)
             dist_folder=hashlink-${short_commit}-${platform_name}-meson
             meson install -C build --destdir $dist_folder
+            ;;
           *)
             dist_folder=hashlink-${short_commit}-${platform_name}
             make PACKAGE_NAME=$dist_folder MARCH=${{ matrix.architecture }} release
