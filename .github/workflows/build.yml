@@ -278,8 +278,8 @@ jobs:
           meson)
             dist_folder=hashlink-${short_commit}-${platform_name}-meson
             meson install -C build --destdir $dist_folder
-            tar -cvzf $dist_folder.tar.gz $dist_folder
-            echo "$HASHLINK_DISTRIBUTION=$dist_folder.tar.gz"
+            tar -cvzf $dist_folder.tar.gz build/$dist_folder
+            echo "HASHLINK_DISTRIBUTION=$dist_folder.tar.gz" >> $GITHUB_ENV
             ;;
           *)
             dist_folder=hashlink-${short_commit}-${platform_name}
