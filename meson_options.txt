@@ -1,0 +1,14 @@
+option('vendored_deps', type: 'boolean', value: true)
+
+option('libs', type: 'array', choices: [
+	'directx',
+	'fmt',
+	'mysql',
+	'openal',
+	'sdl',
+	'sqlite',
+	'ssl',
+	'ui',
+	'uv',
+	'video'
+])

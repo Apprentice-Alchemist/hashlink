@@ -23,7 +23,7 @@ jobs:
       matrix:
         target: [linux, darwin, windows]
         architecture: [32, 64, arm64]
-        build_system: [make, cmake, vs2019]
+        build_system: [make, cmake, vs2019, meson]
 
         include:
           - target: linux
@@ -89,6 +89,8 @@ jobs:
 
           - target: windows
             build_system: make
+          - target: windows
+            build_system: meson
 
           - target: windows
             architecture: 32
@@ -128,12 +130,14 @@ jobs:
               libturbojpeg-dev \
               libuv1-dev \
               libvorbis-dev \
-              libsqlite3-dev
+              libsqlite3-dev \
+              meson
             ;;
 
           darwin*)
             brew update
             brew bundle
+            brew install meson
             ;;
 
           windows*)
@@ -191,7 +195,11 @@ jobs:
             esac
             echo "WINDOWS_BUILD_FOLDER=$BUILD_FOLDER" >> $GITHUB_ENV
             ;;
-
+          meson)
+            meson setup --prefix "/" --bindir "" --libdir "" --buildtype release build
+            meson compile -C build
+            BUILD_FOLDER=build
+            ;;
           make)
             make
             sudo make install
@@ -215,6 +223,9 @@ jobs:
             ;;
           vs2019)
             ${{ env.WINDOWS_BUILD_FOLDER }}/hl.exe --version
+            ;;
+          meson)
+            meson test -C build
             ;;
           make)
             if [[ ${{ matrix.architecture }} != arm64 ]]; then
@@ -260,6 +271,12 @@ jobs:
             cpack -D CPACK_PACKAGE_FILE_NAME=$dist_folder -C ${{ matrix.cmake_configuration }}
 
             echo "HASHLINK_DISTRIBUTION=bin/$dist_folder.${{ matrix.archive_ext }}" >> $GITHUB_ENV
+            ;;
+          meson)
+            dist_folder=hashlink-${short_commit}-${platform_name}-meson
+            meson install -C build --destdir $dist_folder
+            tar -cvzf $dist_folder.tar.gz build/$dist_folder
+            echo "HASHLINK_DISTRIBUTION=$dist_folder.tar.gz" >> $GITHUB_ENV
             ;;
           *)
             dist_folder=hashlink-${short_commit}-${platform_name}
