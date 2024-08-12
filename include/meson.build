@@ -46,7 +46,7 @@ mikktspace_dep = declare_dependency(
 )
 
 mdbg_dep = declare_dependency(
-	include_directories: 'mdbg',
+	include_directories: ['.', 'mdbg'],
 	sources: ['mdbg/mach_excServer.c', 'mdbg/mach_excUser.c', 'mdbg/mdbg.c'],
 )
 
