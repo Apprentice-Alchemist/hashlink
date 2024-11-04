@@ -1,3 +1,7 @@
+if host_machine.system() != 'windows'
+	subdir_done()
+endif
+
 add_languages('cpp')
 
 shared_library(

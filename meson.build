@@ -1,10 +1,10 @@
-project('hashlink', 'c', version: '1.14.0')
-
+project('hashlink', 'c', version: '1.14.0', default_options: ['c_std=c11'])
 thread_dep = dependency('threads')
 
 cc = meson.get_compiler('c')
 m_dep = cc.find_library('m', required: false)
 libdl_dep = cc.find_library('dl', required: false)
+add_project_arguments(cc.get_supported_arguments('-fno-omit-frame-pointer'), language: 'c')
 
 subdir('include')
 

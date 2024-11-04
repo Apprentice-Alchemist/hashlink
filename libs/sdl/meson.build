@@ -12,6 +12,5 @@ shared_library(
 	name_prefix: '',
 	name_suffix: 'hdll',
 	dependencies: sdl_deps,
-	c_args: cc.get_supported_arguments(['-Wno-int-conversion']),
 	install: true
 )
