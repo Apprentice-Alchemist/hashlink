@@ -150,7 +150,7 @@ BREW_LIBOGG := $(shell brew --prefix libogg)
 BREW_LIBUV := $(shell brew --prefix libuv)
 
 CFLAGS += -m$(MARCH) -I include -I $(BREW_LIBJPEG)/include \
-	-I $(BREW_JPEGTURBO)/include -I $(BREW_SDL2)/include -I $(BREW_VORBIS)/include \
+	-I $(BREW_JPEGTURBO)/include -I $(BREW_SDL2)/include -I $(BREW_SDL2)/include/SDL2 -I $(BREW_VORBIS)/include \
 	-I $(BREW_MBEDTLS)/include -I $(BREW_LIBPNG)/include -I $(BREW_LIBOGG)/include \
 	-I $(BREW_LIBUV)/include \
 	-I $(BREW_OPENAL)/include -Dopenal_soft  -DGL_SILENCE_DEPRECATION
@@ -193,6 +193,7 @@ else
 CFLAGS += -m$(MARCH) -fPIC -pthread -fno-omit-frame-pointer
 LFLAGS += -lm -Wl,-rpath,.:'$$ORIGIN':$(INSTALL_LIB_DIR) -Wl,--export-dynamic -Wl,--no-undefined
 
+CFLAGS += $(shell pkg-config --cflags sdl2)
 ifeq ($(MARCH),32)
 CFLAGS += -I /usr/include/i386-linux-gnu -msse2 -mfpmath=sse
 LIBFLAGS += -L/opt/libjpeg-turbo/lib

@@ -8,7 +8,7 @@
 #	include <SDL_vulkan.h>
 #	include <SDL_syswm.h>
 #else
-#	include <SDL2/SDL.h>
+#	include <SDL.h>
 #endif
 
 #if defined (HL_IOS) || defined(HL_TVOS)

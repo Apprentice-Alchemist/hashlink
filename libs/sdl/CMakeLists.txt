@@ -11,6 +11,7 @@ set_as_hdll(sdl)
 target_include_directories(sdl.hdll
     PRIVATE
     ${SDL2_INCLUDE_DIR}
+    ${SDL2_INCLUDE_DIR}/SDL2
     ${INCLUDES_BASE_DIR}/gl
 )
 target_link_libraries(sdl.hdll
