@@ -1,3 +1,5 @@
+vendored_deps = get_option('vendored_deps')
+
 glext_dep = declare_dependency(include_directories: 'gl')
 
 pcre_dep = declare_dependency(
@@ -37,6 +39,11 @@ pcre_dep = declare_dependency(
 
 sqlite_dep = declare_dependency(include_directories: 'sqlite/src', sources: ['sqlite/src/sqlite3.c'], dependencies:  [thread_dep, libdl_dep])
 
+if vendored_deps
+	meson.override_dependency('libpcre2-16', pcre_dep)
+	meson.override_dependency('sqlite3', sqlite_dep)
+endif
+
 minimp3_dep = declare_dependency(include_directories: ['minimp3'])
 
 mikktspace_dep = declare_dependency(
@@ -50,7 +57,7 @@ mdbg_dep = declare_dependency(
 	sources: ['mdbg/mach_excServer.c', 'mdbg/mach_excUser.c', 'mdbg/mdbg.c'],
 )
 
-if get_option('vendored_deps') and host_machine.system() == 'windows'
+if vendored_deps and host_machine.system() == 'windows'
 	fallback_libuv_dep = declare_dependency(
 		include_directories: ['libuv/include', 'libuv/src', 'libuv/src/win'],
 		sources: [

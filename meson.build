@@ -37,9 +37,11 @@ libhl_src = [
 
 hl_incdir = include_directories('src')
 
+pcre_dep = dependency('libpcre2-16')
+
 libhl_deps = [thread_dep, pcre_dep, m_dep]
 if host_machine.system() == 'darwin'
-	libhl_deps += [mdbg_dep]
+	libhl_deps += mdbg_dep
 endif
 
 libhl = library(
@@ -73,6 +75,7 @@ hl_exe = executable(
 	link_with: libhl,
 	dependencies: [m_dep, thread_dep, libdl_dep],
 	install: true,
+	install_rpath: get_option('prefix') / get_option('libdir')
 )
 
 test('hl --version', hl_exe, args: ['--version'])

@@ -1,3 +1,5 @@
+sqlite_dep = dependency('sqlite3')
+
 shared_library(
 	'sqlite',
 	['sqlite.c'],
