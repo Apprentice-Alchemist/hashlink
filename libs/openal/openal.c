@@ -14,7 +14,7 @@
 // ALC
 // ----------------------------------------------------------------------------
 
-#define ALC_IMPORT(fun, t) t fun
+#define ALC_IMPORT(fun, t) t fun##_dyn
 #include "ALCImports.h"
 #undef ALC_IMPORT
 
@@ -66,7 +66,7 @@ HL_PRIM int HL_NAME(alc_get_error)(ALCdevice *device) {
 
 // Extension support
 
-#define ALC_IMPORT(fun,t) fun = (t)alcGetProcAddress(device,#fun)
+#define ALC_IMPORT(fun,t) fun##_dyn = (t)alcGetProcAddress(device,#fun)
 HL_PRIM void HL_NAME(alc_load_extensions)(ALCdevice *device) {
 #	include "ALCImports.h"
 }
@@ -144,7 +144,7 @@ DEFINE_PRIM(_VOID,    alc_capture_samples,      TDEVICE _BYTES _I32);
 // AL
 // ----------------------------------------------------------------------------
 
-#define AL_IMPORT(fun, t) t fun
+#define AL_IMPORT(fun, t) t fun##_dyn
 #include "ALImports.h"
 #undef AL_IMPORT
 
@@ -224,7 +224,7 @@ HL_PRIM int HL_NAME(al_get_error)() {
 
 // Extension support
 
-#define AL_IMPORT(fun,t) fun = (t)alGetProcAddress(#fun)
+#define AL_IMPORT(fun,t) fun##_dyn = (t)alGetProcAddress(#fun)
 HL_PRIM void HL_NAME(al_load_extensions)() {
 #	include "ALImports.h"
 }
@@ -574,7 +574,7 @@ DEFINE_PRIM(_VOID, al_get_bufferiv, _I32 _I32 _BYTES);
 // EXTENSIONS
 // ----------------------------------------------------------------------------
 
-#define CHECK_EXT(fun) if(fun == NULL) hl_error("Unsupported extension function")
+#define CHECK_EXT(fun) if(fun##_dyn == NULL) hl_error("Unsupported extension function")
 
 // ----------------------------------------------------------------------------
 #ifdef EXT_thread_local_context
@@ -600,17 +600,17 @@ DEFINE_PRIM(TCONTEXT, alc_get_thread_context, _NO_ARG);
 
 HL_PRIM ALCdevice* HL_NAME(alc_loopback_open_device_soft)(vbyte *devicename) {
 	CHECK_EXT(alcLoopbackOpenDeviceSOFT);
-	return alcLoopbackOpenDeviceSOFT((char*)devicename);
+	return alcLoopbackOpenDeviceSOFT_dyn((char*)devicename);
 }
 
 HL_PRIM bool HL_NAME(alc_is_render_format_supported_soft)(ALCdevice *device, int freq, int channels, int type) {
 	CHECK_EXT(alcIsRenderFormatSupportedSOFT);
-	return alcIsRenderFormatSupportedSOFT(device, freq, channels, type) == ALC_TRUE;
+	return alcIsRenderFormatSupportedSOFT_dyn(device, freq, channels, type) == ALC_TRUE;
 }
 
 HL_PRIM void HL_NAME(alc_render_samples_soft)(ALCdevice *device, vbyte *buffer, int samples) {
 	CHECK_EXT(alcRenderSamplesSOFT);
-	alcRenderSamplesSOFT(device, buffer, samples);
+	alcRenderSamplesSOFT_dyn(device, buffer, samples);
 }
 
 DEFINE_PRIM(TDEVICE, alc_loopback_open_device_soft,       _BYTES);
@@ -624,12 +624,12 @@ DEFINE_PRIM(_VOID,   alc_render_samples_soft,             TDEVICE _BYTES _I32);
 
 HL_PRIM void HL_NAME(alc_device_pause_soft)(ALCdevice *device) {
 	CHECK_EXT(alcDevicePauseSOFT);
-	alcDevicePauseSOFT(device);
+	alcDevicePauseSOFT_dyn(device);
 }
 
 HL_PRIM void HL_NAME(alc_device_resume_soft)(ALCdevice *device) {
 	CHECK_EXT(alcDeviceResumeSOFT);
-	alcDeviceResumeSOFT(device);
+	alcDeviceResumeSOFT_dyn(device);
 }
 
 DEFINE_PRIM(_VOID, alc_device_pause_soft,  TDEVICE);
@@ -660,7 +660,7 @@ DEFINE_PRIM(_BOOL,  alc_reset_device_soft, TDEVICE _BYTES);
 
 HL_PRIM void HL_NAME(al_buffer_data_static)(unsigned buffer, int format, vbyte *data, int len, int freq) {
 	CHECK_EXT(alBufferDataStatic);
-	alBufferDataStatic(buffer, format, data, len, freq);
+	alBufferDataStatic_dyn(buffer, format, data, len, freq);
 }
 
 DEFINE_PRIM(_VOID, al_buffer_data_static, _I32 _I32 _BYTES _I32 _I32);
@@ -672,7 +672,7 @@ DEFINE_PRIM(_VOID, al_buffer_data_static, _I32 _I32 _BYTES _I32 _I32);
 
 HL_PRIM void HL_NAME(al_buffer_sub_data_soft)(unsigned buffer, int format, vbyte *data, int offset, int length) {
 	CHECK_EXT(alBufferSubDataSOFT);
-	alBufferSubDataSOFT(buffer, format, data, offset, length);
+	alBufferSubDataSOFT_dyn(buffer, format, data, offset, length);
 }
 
 DEFINE_PRIM(_VOID, al_buffer_sub_data_soft, _I32 _I32 _BYTES _I32 _I32);
@@ -685,12 +685,12 @@ DEFINE_PRIM(_VOID, al_buffer_sub_data_soft, _I32 _I32 _BYTES _I32 _I32);
 HL_PRIM void HL_NAME(al_request_foldback_start)(int mode, int count, int length, vbyte *mem, vclosure *callback) {
 	CHECK_EXT(alRequestFoldbackStart);
 	if (callback->hasValue) if( callback->hasValue ) hl_error("Cannot set foldback on closure callback");
-	alRequestFoldbackStart(mode, count, length, (ALfloat*)mem, (LPALFOLDBACKCALLBACK)callback->fun);
+	alRequestFoldbackStart_dyn(mode, count, length, (ALfloat*)mem, (LPALFOLDBACKCALLBACK)callback->fun);
 }
 
 HL_PRIM void HL_NAME(al_request_foldback_stop)() {
 	CHECK_EXT(alRequestFoldbackStop);
-	alRequestFoldbackStop();
+	alRequestFoldbackStop_dyn();
 }
 
 DEFINE_PRIM(_VOID, al_request_foldback_start, _I32 _I32 _I32 _BYTES _FUN(_VOID, _I32 _I32));
@@ -704,22 +704,22 @@ DEFINE_PRIM(_VOID, al_request_foldback_stop,  _NO_ARG);
 
 HL_PRIM void HL_NAME(al_buffer_samples_soft)(unsigned buffer, int samplerate, int internatlformat, int samples, int channels, int type, vbyte *data) {
 	CHECK_EXT(alBufferSamplesSOFT);
-	alBufferSamplesSOFT(buffer, samplerate, internatlformat, samples, channels, type, data);
+	alBufferSamplesSOFT_dyn(buffer, samplerate, internatlformat, samples, channels, type, data);
 }
 
 HL_PRIM void HL_NAME(al_buffer_sub_samples_soft)(unsigned buffer, int offset, int samples, int channels, int type, vbyte *data) {
 	CHECK_EXT(alBufferSubSamplesSOFT);
-	alBufferSubSamplesSOFT(buffer, offset, samples, channels, type, data);
+	alBufferSubSamplesSOFT_dyn(buffer, offset, samples, channels, type, data);
 }
 
 HL_PRIM void HL_NAME(al_get_buffer_samples_soft)(unsigned buffer, int offset, int samples, int channels, int type, vbyte *data) {
 	CHECK_EXT(alGetBufferSamplesSOFT);
-	alGetBufferSamplesSOFT(buffer, offset, samples, channels, type, data);
+	alGetBufferSamplesSOFT_dyn(buffer, offset, samples, channels, type, data);
 }
 
 HL_PRIM bool HL_NAME(al_is_buffer_format_supported_soft)(int format) {
 	CHECK_EXT(alIsBufferFormatSupportedSOFT);
-	return alIsBufferFormatSupportedSOFT(format) == AL_TRUE;
+	return alIsBufferFormatSupportedSOFT_dyn(format) == AL_TRUE;
 }
 
 DEFINE_PRIM(_VOID, al_buffer_samples_soft,              _I32 _I32 _I32 _I32 _I32 _I32 _BYTES);
@@ -734,34 +734,34 @@ DEFINE_PRIM(_BOOL, al_is_buffer_format_supported_soft,  _I32);
 
 HL_PRIM void HL_NAME(al_sourced_soft)(unsigned source, int param, double value) {
 	CHECK_EXT(alSourcedSOFT);
-	alSourcedSOFT(source, param, value);
+	alSourcedSOFT_dyn(source, param, value);
 }
 
 HL_PRIM void HL_NAME(al_source3d_soft)(unsigned source, int param, double value1, double value2, double value3) {
 	CHECK_EXT(alSource3dSOFT);
-	alSource3dSOFT(source, param, value1, value2, value3);
+	alSource3dSOFT_dyn(source, param, value1, value2, value3);
 }
 
 HL_PRIM void HL_NAME(al_sourcedv_soft)(unsigned source, int param, vbyte *values) {
 	CHECK_EXT(alSourcedvSOFT);
-	alSourcedvSOFT(source, param, (ALdouble*)values);
+	alSourcedvSOFT_dyn(source, param, (ALdouble*)values);
 }
 
 HL_PRIM double HL_NAME(al_get_sourced_soft)(unsigned source, int param) {
 	double value;
 	CHECK_EXT(alGetSourcedSOFT);
-	alGetSourcedSOFT(source, param, &value);
+	alGetSourcedSOFT_dyn(source, param, &value);
 	return value;
 }
 
 HL_PRIM void HL_NAME(al_get_source3d_soft)(unsigned source, int param, double *value1, double *value2, double *value3) {
 	CHECK_EXT(alGetSource3dSOFT);
-	alGetSource3dSOFT(source, param, value1, value2, value3);
+	alGetSource3dSOFT_dyn(source, param, value1, value2, value3);
 }
 
 HL_PRIM void HL_NAME(al_get_sourcedv_soft)(unsigned source, int param, vbyte *values) {
 	CHECK_EXT(alGetSourcedvSOFT);
-	alGetSourcedvSOFT(source, param, (ALdouble*)values);
+	alGetSourcedvSOFT_dyn(source, param, (ALdouble*)values);
 }
 
 #define I64_COMBINE(hi, lo) (((ALint64SOFT)hi) << 32) | lo
@@ -770,13 +770,13 @@ HL_PRIM void HL_NAME(al_get_sourcedv_soft)(unsigned source, int param, vbyte *va
 
 HL_PRIM void HL_NAME(al_sourcei64_soft)(unsigned source, int param, int valueHi, int valueLo) {
 	CHECK_EXT(alSourcei64SOFT);
-	alSourcei64SOFT(source, param, I64_COMBINE(valueHi, valueLo));
+	alSourcei64SOFT_dyn(source, param, I64_COMBINE(valueHi, valueLo));
 }
 
 HL_PRIM void HL_NAME(al_source3i64_soft)(unsigned source, int param, 
 		int value1Hi, int value1Lo, int value2Hi, int value2Lo, int value3Hi, int value3Lo) {
 	CHECK_EXT(alSource3i64SOFT);
-	alSource3i64SOFT(source, param, 
+	alSource3i64SOFT_dyn(source, param, 
 		I64_COMBINE(value1Hi, value1Lo), 
 		I64_COMBINE(value2Hi, value2Lo), 
 		I64_COMBINE(value3Hi, value3Lo));
@@ -784,13 +784,13 @@ HL_PRIM void HL_NAME(al_source3i64_soft)(unsigned source, int param,
 
 HL_PRIM void HL_NAME(al_sourcei64v_soft)(unsigned source, int param, vbyte *values) {
 	CHECK_EXT(alSourcei64vSOFT);
-	alSourcei64vSOFT(source, param, (ALint64SOFT*)values);
+	alSourcei64vSOFT_dyn(source, param, (ALint64SOFT*)values);
 }
 
 HL_PRIM void HL_NAME(al_get_sourcei64_soft)(unsigned source, int param, int *valueHi, int *valueLo) {
 	ALint64SOFT value;
 	CHECK_EXT(alGetSourcei64SOFT);
-	alGetSourcei64SOFT(source, param, &value);
+	alGetSourcei64SOFT_dyn(source, param, &value);
 	*valueHi = I64_HI(value);
 	*valueLo = I64_LO(value);
 }
@@ -799,7 +799,7 @@ HL_PRIM void HL_NAME(al_get_source3i64_soft)(unsigned source, int param,
 		int *value1Hi, int *value1Lo, int *value2Hi, int *value2Lo, int *value3Hi, int *value3Lo) {
 	ALint64SOFT value1, value2, value3;
 	CHECK_EXT(alGetSource3i64SOFT);
-	alGetSource3i64SOFT(source, param, &value1, &value2, &value3);
+	alGetSource3i64SOFT_dyn(source, param, &value1, &value2, &value3);
 	*value1Hi = I64_HI(value1);
 	*value1Lo = I64_LO(value1);
 	*value2Hi = I64_HI(value2);
@@ -810,7 +810,7 @@ HL_PRIM void HL_NAME(al_get_source3i64_soft)(unsigned source, int param,
 
 HL_PRIM void HL_NAME(al_get_sourcei64v_soft)(unsigned source, int param, vbyte *values) {
 	CHECK_EXT(alGetSourcei64vSOFT);
-	alGetSourcei64vSOFT(source, param, (ALint64SOFT*)values);
+	alGetSourcei64vSOFT_dyn(source, param, (ALint64SOFT*)values);
 }
 
 DEFINE_PRIM(_VOID, al_sourced_soft,  _I32 _I32 _F64);
@@ -836,12 +836,12 @@ DEFINE_PRIM(_VOID, al_get_sourcei64v_soft, _I32 _I32 _BYTES);
 
 HL_PRIM void HL_NAME(al_defer_updates_soft)() {
 	CHECK_EXT(alDeferUpdatesSOFT);
-	alDeferUpdatesSOFT();
+	alDeferUpdatesSOFT_dyn();
 }
 
 HL_PRIM void HL_NAME(al_process_updates_soft)() {
 	CHECK_EXT(alProcessUpdatesSOFT);
-	alProcessUpdatesSOFT();
+	alProcessUpdatesSOFT_dyn();
 }
 
 DEFINE_PRIM(_VOID, al_defer_updates_soft,   _NO_ARG);
@@ -853,51 +853,51 @@ DEFINE_PRIM(_VOID, al_process_updates_soft, _NO_ARG);
 // ----------------------------------------------------------------------------
 
 HL_PRIM void HL_NAME(al_gen_effects)(int n, vbyte *effects) {
-	alGenEffects(n, (ALuint*)effects);
+	alGenEffects_dyn(n, (ALuint*)effects);
 }
 
 HL_PRIM void HL_NAME(al_delete_effects)(int n, vbyte *effects) {
-	alDeleteEffects(n, (ALuint*)effects);
+	alDeleteEffects_dyn(n, (ALuint*)effects);
 }
 
 HL_PRIM bool HL_NAME(al_is_effect)(unsigned effect) {
-	return alIsEffect(effect) == AL_TRUE;
+	return alIsEffect_dyn(effect) == AL_TRUE;
 }
 
 HL_PRIM void HL_NAME(al_effecti)(unsigned effect, int param, int iValue) {
-	alEffecti(effect, param, iValue);
+	alEffecti_dyn(effect, param, iValue);
 }
 
 HL_PRIM void HL_NAME(al_effectiv)(unsigned effect, int param, vbyte *piValues) {
-	alEffectiv(effect, param, (ALint*)piValues);
+	alEffectiv_dyn(effect, param, (ALint*)piValues);
 }
 
 HL_PRIM void HL_NAME(al_effectf)(unsigned effect, int param, float flValue) {
-	alEffectf(effect, param, flValue);
+	alEffectf_dyn(effect, param, flValue);
 }
 
 HL_PRIM void HL_NAME(al_effectfv)(unsigned effect, int param, vbyte *pflValues) {
-	alEffectfv(effect, param, (ALfloat*)pflValues);
+	alEffectfv_dyn(effect, param, (ALfloat*)pflValues);
 }
 
 HL_PRIM int HL_NAME(al_get_effecti)(unsigned effect, int param) {
 	int value;
-	alGetEffecti(effect, param, &value);
+	alGetEffecti_dyn(effect, param, &value);
 	return value;
 }
 
 HL_PRIM void HL_NAME(al_get_effectiv)(unsigned effect, int param, vbyte *piValues) {
-	alGetEffectiv(effect, param, (ALint*)piValues);
+	alGetEffectiv_dyn(effect, param, (ALint*)piValues);
 }
 
 HL_PRIM float HL_NAME(al_get_effectf)(unsigned effect, int param) {
 	float value;
-	alGetEffectf(effect, param, &value);
+	alGetEffectf_dyn(effect, param, &value);
 	return value;
 }
 
 HL_PRIM void HL_NAME(al_get_effectfv)(unsigned effect, int param, vbyte *pflValues) {
-	alGetEffectfv(effect, param, (ALfloat*)pflValues);
+	alGetEffectfv_dyn(effect, param, (ALfloat*)pflValues);
 }
 
 DEFINE_PRIM(_VOID, al_gen_effects,    _I32 _BYTES);
@@ -917,51 +917,51 @@ DEFINE_PRIM(_VOID, al_get_effectfv,   _I32 _I32 _BYTES);
 // ----------------------------------------------------------------------------
 
 HL_PRIM void HL_NAME(al_gen_filters)(int n, vbyte *filters) {
-	alGenFilters(n, (ALuint*)filters);
+	alGenFilters_dyn(n, (ALuint*)filters);
 }
 
 HL_PRIM void HL_NAME(al_delete_filters)(int n, vbyte *filters) {
-	alDeleteFilters(n, (ALuint*)filters);
+	alDeleteFilters_dyn(n, (ALuint*)filters);
 }
 
 HL_PRIM bool HL_NAME(al_is_filter)(unsigned filter) {
-	return alIsFilter(filter) == AL_TRUE;
+	return alIsFilter_dyn(filter) == AL_TRUE;
 }
 
 HL_PRIM void HL_NAME(al_filteri)(unsigned filter, int param, int iValue) {
-	alFilteri(filter, param, iValue);
+	alFilteri_dyn(filter, param, iValue);
 }
 
 HL_PRIM void HL_NAME(al_filteriv)(unsigned filter, int param, vbyte *piValues) {
-	alFilteriv(filter, param, (ALint*)piValues);
+	alFilteriv_dyn(filter, param, (ALint*)piValues);
 }
 
 HL_PRIM void HL_NAME(al_filterf)(unsigned filter, int param, float flValue) {
-	alFilterf(filter, param, flValue);
+	alFilterf_dyn(filter, param, flValue);
 }
 
 HL_PRIM void HL_NAME(al_filterfv)(unsigned filter, int param, vbyte *pflValues) {
-	alFilterfv(filter, param, (ALfloat*)pflValues);
+	alFilterfv_dyn(filter, param, (ALfloat*)pflValues);
 }
 
 HL_PRIM int HL_NAME(al_get_filteri)(unsigned filter, int param) {
 	int value;
-	alGetFilteri(filter, param, &value);
+	alGetFilteri_dyn(filter, param, &value);
 	return value;
 }
 
 HL_PRIM void HL_NAME(al_get_filteriv)(unsigned filter, int param, vbyte *piValues) {
-	alGetFilteriv(filter, param, (ALint*)piValues);
+	alGetFilteriv_dyn(filter, param, (ALint*)piValues);
 }
 
 HL_PRIM float HL_NAME(al_get_filterf)(unsigned filter, int param) {
 	float value;
-	alGetFilterf(filter, param, &value);
+	alGetFilterf_dyn(filter, param, &value);
 	return value;
 }
 
 HL_PRIM void HL_NAME(al_get_filterfv)(unsigned filter, int param, vbyte *pflValues) {
-	alGetFilterfv(filter, param, (ALfloat*)pflValues);
+	alGetFilterfv_dyn(filter, param, (ALfloat*)pflValues);
 }
 
 DEFINE_PRIM(_VOID, al_gen_filters,    _I32 _BYTES);
@@ -981,51 +981,51 @@ DEFINE_PRIM(_VOID, al_get_filterfv,   _I32 _I32 _BYTES);
 // ----------------------------------------------------------------------------
 
 HL_PRIM void HL_NAME(al_gen_auxiliary_effect_slots)(int n, vbyte *effectslots) {
-	alGenAuxiliaryEffectSlots(n, (ALuint*)effectslots);
+	alGenAuxiliaryEffectSlots_dyn(n, (ALuint*)effectslots);
 }
 
 HL_PRIM void HL_NAME(al_delete_auxiliary_effect_slots)(int n, vbyte *effectslots) {
-	alDeleteAuxiliaryEffectSlots(n, (ALuint*)effectslots);
+	alDeleteAuxiliaryEffectSlots_dyn(n, (ALuint*)effectslots);
 }
 
 HL_PRIM bool HL_NAME(al_is_auxiliary_effect_slot)(unsigned effectslot) {
-	return alIsAuxiliaryEffectSlot(effectslot) == AL_TRUE;
+	return alIsAuxiliaryEffectSlot_dyn(effectslot) == AL_TRUE;
 }
 
 HL_PRIM void HL_NAME(al_auxiliary_effect_sloti)(unsigned effectslot, int param, int iValue) {
-	alAuxiliaryEffectSloti(effectslot, param, iValue);
+	alAuxiliaryEffectSloti_dyn(effectslot, param, iValue);
 }
 
 HL_PRIM void HL_NAME(al_auxiliary_effect_slotiv)(unsigned effectslot, int param, vbyte *piValues) {
-	alAuxiliaryEffectSlotiv(effectslot, param, (ALint*)piValues);
+	alAuxiliaryEffectSlotiv_dyn(effectslot, param, (ALint*)piValues);
 }
 
 HL_PRIM void HL_NAME(al_auxiliary_effect_slotf)(unsigned effectslot, int param, float flValue) {
-	alAuxiliaryEffectSlotf(effectslot, param, flValue);
+	alAuxiliaryEffectSlotf_dyn(effectslot, param, flValue);
 }
 
 HL_PRIM void HL_NAME(al_auxiliary_effect_slotfv)(unsigned effectslot, int param, vbyte *pflValues) {
-	alAuxiliaryEffectSlotfv(effectslot, param, (ALfloat*)pflValues);
+	alAuxiliaryEffectSlotfv_dyn(effectslot, param, (ALfloat*)pflValues);
 }
 
 HL_PRIM int HL_NAME(al_get_auxiliary_effect_sloti)(unsigned effectslot, int param) {
 	int value;
-	alGetAuxiliaryEffectSloti(effectslot, param, &value);
+	alGetAuxiliaryEffectSloti_dyn(effectslot, param, &value);
 	return value;
 }
 
 HL_PRIM void HL_NAME(al_get_auxiliary_effect_slotiv)(unsigned effectslot, int param, vbyte *piValues) {
-	alGetAuxiliaryEffectSlotiv(effectslot, param, (ALint*)piValues);
+	alGetAuxiliaryEffectSlotiv_dyn(effectslot, param, (ALint*)piValues);
 }
 
 HL_PRIM float HL_NAME(al_get_auxiliary_effect_slotf)(unsigned effectslot, int param) {
 	float value;
-	alGetAuxiliaryEffectSlotf(effectslot, param, &value);
+	alGetAuxiliaryEffectSlotf_dyn(effectslot, param, &value);
 	return value;
 }
 
 HL_PRIM void HL_NAME(al_get_auxiliary_effect_slotfv)(unsigned effectslot, int param, vbyte *pflValues) {
-	alGetAuxiliaryEffectSlotfv(effectslot, param, (ALfloat*)pflValues);
+	alGetAuxiliaryEffectSlotfv_dyn(effectslot, param, (ALfloat*)pflValues);
 }
 
 DEFINE_PRIM(_VOID, al_gen_auxiliary_effect_slots,    _I32 _BYTES);
