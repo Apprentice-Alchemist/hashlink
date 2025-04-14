@@ -13,12 +13,21 @@ ARCH ?= $(shell uname -m)
 CFLAGS = -Wall -O3 -I src -std=c11 -D LIBHL_EXPORTS
 LFLAGS = -L. -lhl
 EXTRA_LFLAGS ?=
-LIBFLAGS =
+LIBFLAGS = -L. -lhl
 HLFLAGS = -ldl
 LIBEXT = so
 LIBTURBOJPEG = -lturbojpeg
 
 LHL_LINK_FLAGS =
+FMT_LINK_FLAGS =
+SDL_LINK_FLAGS =
+OPENAL_LINK_FLAGS =
+SSL_LINK_FLAGS =
+UI_LINK_FLAGS =
+UV_LINK_FLAGS =
+MYSQL_LINK_FLAGS =
+SQLITE_LINK_FLAGS =
+HEAPS_LINK_FLAGS =
 
 PCRE_FLAGS = -I include/pcre -D HAVE_CONFIG_H -D PCRE2_CODE_UNIT_WIDTH=16
 
@@ -93,8 +102,6 @@ SSL += include/mbedtls/library/aes.o include/mbedtls/library/aesce.o include/mbe
 	include/mbedtls/library/x509_csr.o include/mbedtls/library/x509write.o include/mbedtls/library/x509write_crt.o \
 	include/mbedtls/library/x509write_csr.o
 SSL_CFLAGS = -fvisibility=hidden -I libs/ssl -I include/mbedtls/include -D MBEDTLS_USER_CONFIG_FILE=\"mbedtls_user_config.h\"
-else
-SSL_LDLIBS = -lmbedtls -lmbedx509 -lmbedcrypto
 endif
 
 UV = libs/uv/uv.o
@@ -153,8 +160,8 @@ BREW_PREFIX := $(shell brew --prefix)
 # prefixes for keg-only packages
 BREW_OPENAL_PREFIX := $(shell brew --prefix openal-soft)
 
-CFLAGS += -m$(MARCH) -I include -I $(BREW_PREFIX)/include -I $(BREW_OPENAL_PREFIX)/include -Dopenal_soft -DGL_SILENCE_DEPRECATION
-LFLAGS += -Wl,-export_dynamic
+CFLAGS += -arch $(ARCH) -I include -I $(BREW_PREFIX)/include -I $(BREW_OPENAL_PREFIX)/include -Dopenal_soft -DGL_SILENCE_DEPRECATION
+LFLAGS += -arch $(ARCH) -Wl,-export_dynamic
 
 ifdef OSX_SDK
 ISYSROOT = $(shell xcrun --sdk macosx$(OSX_SDK) --show-sdk-path)
@@ -162,10 +169,7 @@ CFLAGS += -isysroot $(ISYSROOT)
 LFLAGS += -isysroot $(ISYSROOT)
 endif
 
-LIBFLAGS += -L$(BREW_PREFIX)/lib -L$(BREW_OPENAL_PREFIX)/lib
-LIBOPENGL = -framework OpenGL
-LIBOPENAL = -lopenal
-LIBSSL = -framework Security -framework CoreFoundation
+LIBFLAGS += -L$(BREW_PREFIX)/lib
 RELEASE_NAME = osx
 
 # Mac native debug
@@ -174,29 +178,46 @@ HL_DEBUG = include/mdbg/mdbg.o include/mdbg/mach_excServer.o include/mdbg/mach_e
 LIB += ${HL_DEBUG}
 endif
 
-CFLAGS += -arch $(ARCH)
-LFLAGS += -arch $(ARCH)
-
 LFLAGS += -rpath @executable_path -rpath $(INSTALL_LIB_DIR)
 LIBFLAGS += -rpath @executable_path -rpath $(INSTALL_LIB_DIR)
 LHL_LINK_FLAGS += -install_name @rpath/libhl.dylib
+FMT_LINK_FLAGS += -install_name @rpath/fmt.hdll $(shell pkg-config --libs libturbojpeg libpng vorbisenc vorbisfile zlib)
+SDL_LINK_FLAGS += -install_name @rpath/sdl.hdll $(shell pkg-config --libs sdl2) -framework OpenGL
+OPENAL_LINK_FLAGS += -install_name @rpath/openal.hdll -L$(BREW_OPENAL_PREFIX)/lib -lopenal
+SSL_LINK_FLAGS += -install_name @rpath/ssl.hdll -framework Security -framework CoreFoundation
+ifndef SSL_STATIC
+SSL_LINK_FLAGS += $(shell pkg-config --libs mbedcrypto mbedx509 mbedtls)
+endif
+UI_LINK_FLAGS += -install_name @rpath/ui.hdll
+UV_LINK_FLAGS += -install_name @rpath/uv.hdll $(shell pkg-config --libs libuv)
+MYSQL_LINK_FLAGS += -install_name @rpath/mysql.hdll
+SQLITE_LINK_FLAGS += -install_name @rpath/sqlite.hdll $(shell pkg-config --libs sqlite3)
+HEAPS_LINK_FLAGS += -install_name @rpath/heaps.hdll
 else
 
 # Linux
 CFLAGS += -m$(MARCH) -fPIC -pthread -fno-omit-frame-pointer
 LFLAGS += -lm -Wl,-rpath,.:'$$ORIGIN':$(INSTALL_LIB_DIR) -Wl,--export-dynamic -Wl,--no-undefined
 
-ifeq ($(MARCH),32)
-CFLAGS += -I /usr/include/i386-linux-gnu -msse2 -mfpmath=sse
-LIBFLAGS += -L/opt/libjpeg-turbo/lib
-else
-LIBFLAGS += -L/opt/libjpeg-turbo/lib64
+LHL_LINK_FLAGS += -Wl,-soname,libhl.so
+FMT_LINK_FLAGS += -Wl,-soname,fmt.hdll $(shell pkg-config --libs libturbojpeg libpng vorbisenc vorbisfile zlib)
+SDL_LINK_FLAGS += -Wl,-soname,sdl.hdll $(shell pkg-config --libs sdl2 opengl)
+OPENAL_LINK_FLAGS += -Wl,-soname,openal.hdll $(shell pkg-config --libs openal)
+SSL_LINK_FLAGS += -Wl,-soname,ssl.hdll
+ifndef SSL_STATIC
+SSL_LINK_FLAGS += $(shell pkg-config --libs mbedcrypto mbedx509 mbedtls)
+# Workaround for distros that still ship mbedtls 2.x
+ifneq ($(.SHELLSTATUS), 1)
+SSL_LINK_FLAGS += -lmbedtls -lmbedx509 -lmbedcrypto
 endif
+endif
+UI_LINK_FLAGS += -Wl,-soname,ui.hdll
+UV_LINK_FLAGS += -Wl,-soname,uv.hdll $(shell pkg-config --libs libuv)
+MYSQL_LINK_FLAGS += -Wl,-soname,mysql.hdll
+SQLITE_LINK_FLAGS += -Wl,-soname,sqlite.hdll $(shell pkg-config --libs sqlite3)
+HEAPS_LINK_FLAGS += -Wl,-soname,heaps.hdll
 
-LIBOPENAL = -lopenal
-LIBOPENGL = -lGL
 RELEASE_NAME = linux
-
 endif
 
 
@@ -240,25 +261,25 @@ src/std/regexp.o: src/std/regexp.c
 	${CC} ${CFLAGS} -o $@ -c $< ${PCRE_FLAGS}
 
 libhl: ${LIB}
-	${CC} ${CFLAGS} -o libhl.$(LIBEXT) -m${MARCH} ${LIBFLAGS} ${LHL_LINK_FLAGS} -shared ${LIB} -lpthread -lm
+	${CC} -o libhl.$(LIBEXT) ${LHL_LINK_FLAGS} -shared ${LIB} -pthread -lm
 
 hlc: ${BOOT}
-	${CC} ${CFLAGS} -o hlc ${BOOT} ${LFLAGS} ${EXTRA_LFLAGS}
+	${CC} -o hlc ${BOOT} ${LFLAGS} ${EXTRA_LFLAGS}
 
 hl: ${HL} libhl
-	${CC} ${CFLAGS} -o hl ${HL} ${LFLAGS} ${EXTRA_LFLAGS} ${HLFLAGS}
+	${CC} -o hl ${HL} ${LFLAGS} ${EXTRA_LFLAGS} ${HLFLAGS}
 
 libs/fmt/%.o: libs/fmt/%.c
 	${CC} ${CFLAGS} -o $@ -c $< ${FMT_INCLUDE}
 
 fmt: ${FMT} libhl
-	${CC} ${CFLAGS} -shared -o fmt.hdll ${FMT} ${LIBFLAGS} -L. -lhl -lpng $(LIBTURBOJPEG) -lz -lvorbisfile
+	${CC} -shared -o fmt.hdll ${FMT} ${LIBFLAGS} $(FMT_LINK_FLAGS)
 
 sdl: ${SDL} libhl
-	${CC} ${CFLAGS} -shared -o sdl.hdll ${SDL} ${LIBFLAGS} -L. -lhl -lSDL2 $(LIBOPENGL)
+	${CC} -shared -o sdl.hdll ${SDL} ${LIBFLAGS} $(SDL_LINK_FLAGS)
 
 openal: ${OPENAL} libhl
-	${CC} ${CFLAGS} -shared -o openal.hdll ${OPENAL} ${LIBFLAGS} -L. -lhl $(LIBOPENAL)
+	${CC} -shared -o openal.hdll ${OPENAL} ${LIBFLAGS} $(OPENAL_LINK_FLAGS)
 
 ./include/mbedtls/%.o: ./include/mbedtls/%.c
 	${CC} ${CFLAGS} -o $@ -c $< ${SSL_CFLAGS}
@@ -269,19 +290,19 @@ libs/ssl/ssl.o: libs/ssl/ssl.c
 	${CC} ${CFLAGS} -o $@ -c $< ${SSL_CFLAGS}
 
 ssl: ${SSL} libhl
-	${CC} ${CFLAGS} ${SSL_CFLAGS} -shared -o ssl.hdll ${SSL} ${LIBFLAGS} -L. -lhl ${SSL_LDLIBS} $(LIBSSL)
+	${CC} -shared -o ssl.hdll ${SSL} ${LIBFLAGS} $(SSL_LINK_FLAGS)
 
 ui: ${UI} libhl
-	${CC} ${CFLAGS} -shared -o ui.hdll ${UI} ${LIBFLAGS} -L. -lhl
+	${CC} -shared -o ui.hdll ${UI} ${LIBFLAGS} $(UI_LINK_FLAGS)
 
 uv: ${UV} libhl
-	${CC} ${CFLAGS} -shared -o uv.hdll ${UV} ${LIBFLAGS} -L. -lhl -luv
+	${CC} -shared -o uv.hdll ${UV} ${LIBFLAGS} $(UV_LINK_FLAGS)
 
 mysql: ${MYSQL} libhl
-	${CC} ${CFLAGS} -shared -o mysql.hdll ${MYSQL} ${LIBFLAGS} -L. -lhl
+	${CC} -shared -o mysql.hdll ${MYSQL} ${LIBFLAGS} $(MYSQL_LINK_FLAGS)
 
 sqlite: ${SQLITE} libhl
-	${CC} ${CFLAGS} -shared -o sqlite.hdll ${SQLITE} ${LIBFLAGS} -L. -lhl -lsqlite3
+	${CC} -shared -o sqlite.hdll ${SQLITE} ${LIBFLAGS} $(SQLITE_LINK_FLAGS)
 
 CXXFLAGS:=$(filter-out -std=c11,$(CFLAGS)) -std=c++11
 
@@ -298,7 +319,7 @@ CXXFLAGS:=$(filter-out -std=c11,$(CFLAGS)) -std=c++11
 	${CC} ${CXXFLAGS} -o $@ -c $< ${HEAPS_CFLAGS}
 
 heaps: ${HEAPS} libhl
-	${CXX} ${CFLAGS} ${HEAPS_CFLAGS} -shared -o heaps.hdll ${HEAPS} ${LIBFLAGS} -L. -lhl
+	${CXX} -shared -o heaps.hdll ${HEAPS} $(HEAPS_LINK_FLAGS)
 
 mesa:
 	(cd libs/mesa && ${MAKE})
