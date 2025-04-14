@@ -112,7 +112,8 @@ class NinjaGenerator {
 		switch Sys.systemName() {
 			case "Windows":
 				var devcmd = findVsDevCmdScript();
-				Sys.command("cmd.exe", ["/C", devcmd, "-arch=x64", '&&', 'ninja', '-C', dir]);
+				var devcmd = haxe.SysTools.quoteWinArg(devcmd, true);
+				Sys.command('$devcmd && ninja -C $dir');
 			case _:
 				Sys.command("ninja", ["-C", dir]);
 		}
@@ -131,7 +132,7 @@ class NinjaGenerator {
 		var stdout = proc.stdout.readAll();
 		if (proc.exitCode(true) == 0) {
 			var instPath = stdout.toString().trim();
-			return '$instPath\\Common7\\Tools\\vsdevcmd.bat';
+			return '$instPath\\VC\\Auxiliary\\Build\\vcvars64.bat';
 		} else {
 			return null;
 		}
