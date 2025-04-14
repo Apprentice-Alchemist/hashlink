@@ -52,18 +52,30 @@ class NinjaGenerator {
 
 		switch compiler_flavor {
 			case GCC:
+				var prefix = switch Sys.systemName() {
+					case "Mac":
+						var proc = new sys.io.Process("brew", ["--prefix", "hashlink"]);
+						proc.stdin.close();
+						if (proc.exitCode(true) == 0) {
+							proc.stdout.readAll().toString().trim();
+						} else {
+							"/usr/local";
+						}
+					case _:
+						"/usr/local";
+				}
 				var opt_flag = config.defines.exists("debug") ? "-g" : '-O2';
 				var rpath = switch Sys.systemName() {
-					case "Mac": "-rpath @executable_path -rpath /usr/local/lib";
-					case _: "-Wl,-rpath,$$ORIGIN:/usr/local/lib";
+					case "Mac": '-rpath @executable_path -rpath $prefix/lib';
+					case _: '-Wl,-rpath,$$ORIGIN:$prefix/lib';
 				};
 				gen.bind('cflags', '$opt_flag -std=c11 -DHL_MAKE -Wall -I. -pthread');
 				final libflags = config.libs.map((lib) -> switch lib {
 					case "std": "-lhl";
-					case "uv": '/usr/local/lib/$lib.hdll -luv';
-					case var lib: '/usr/local/lib/$lib.hdll';
+					case "uv": '$prefix/lib/$lib.hdll -luv';
+					case var lib: '$prefix/lib/$lib.hdll';
 				}).join(' ');
-				gen.bind('ldflags', '-pthread -lm -L/usr/local/lib $libflags $rpath');
+				gen.bind('ldflags', '-pthread -lm -L$prefix/lib $libflags $rpath');
 				gen.rule('cc', [
 					"command" => "cc -MD -MF $out.d $cflags -c $in -o $out",
 					"deps" => "gcc",
