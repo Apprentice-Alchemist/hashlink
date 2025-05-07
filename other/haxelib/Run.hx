@@ -52,17 +52,16 @@ class NinjaGenerator {
 
 		switch compiler_flavor {
 			case GCC:
-				var prefix = switch Sys.systemName() {
-					case "Mac":
-						var proc = new sys.io.Process("brew", ["--prefix", "hashlink"]);
-						proc.stdin.close();
-						if (proc.exitCode(true) == 0) {
-							proc.stdout.readAll().toString().trim();
-						} else {
-							"/usr/local";
+				var prefix = "/usr/local";
+				if (Sys.systemName() == "Mac") {
+					var proc = new sys.io.Process("brew", ["--prefix", "hashlink"]);
+					proc.stdin.close();
+					if (proc.exitCode(true) == 0) {
+						var path = proc.stdout.readAll().toString().trim();
+						if (sys.FileSystem.exists(path)) {
+							prefix = path;
 						}
-					case _:
-						"/usr/local";
+					}
 				}
 				var opt_flag = config.defines.exists("debug") ? "-g" : '-O2';
 				var rpath = switch Sys.systemName() {
