@@ -27,8 +27,14 @@ jobs:
 
         include:
           - target: linux
+            architecture: 64
             runner: ubuntu-22.04
             haxe_nightly_dir: linux64
+            archive_ext: tar.gz
+          - target: linux
+            architecture: arm64
+            runner: ubuntu-22.04-arm
+            haxe_nightly_dir: linux-arm64
             archive_ext: tar.gz
 
           - target: darwin
@@ -81,9 +87,6 @@ jobs:
           - target: darwin
             architecture: 32
 
-          - target: linux
-            architecture: arm64
-
           - target: windows
             architecture: arm64
 
@@ -111,7 +114,7 @@ jobs:
         set -eux
 
         case "${{ matrix.target }}${{ matrix.architecture }}" in
-          linux64)
+          linux*)
             echo "MARCH=64" >> $GITHUB_ENV
             sudo apt-get update -y
             sudo apt-get install --no-install-recommends -y \
@@ -141,7 +144,7 @@ jobs:
         esac
 
     - name: Install haxe
-      uses: krdlab/setup-haxe@f0a0baa8ccdb1fe4fc316c8f30eb3ca77aa4ea4e
+      uses: Apprentice-Alchemist/setup-haxe@9623def59695242d7d82382bc44bee999be065bc
       with:
         haxe-version: latest
 
@@ -251,6 +254,7 @@ jobs:
           darwin64)   platform_name=darwin ;;
           windows*)  platform_name=win${{matrix.architecture}} ;;
           linux64)   platform_name=linux-amd64 ;;
+          linuxarm64)   platform_name=linux-arm64 ;;
         esac
 
         short_commit=$(git rev-parse --short HEAD)
