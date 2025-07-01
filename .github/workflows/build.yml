@@ -30,6 +30,11 @@ jobs:
             runner: ubuntu-latest
             haxe_nightly_dir: linux64
             archive_ext: tar.gz
+          - target: linux
+            architecture: arm64
+            runner: ubuntu-24.04-arm
+            haxe_nightly_dir: linux-arm64
+            archive_ext: tar.gz
 
           - target: darwin
             haxe_nightly_dir: mac
@@ -89,9 +94,6 @@ jobs:
           - target: darwin
             architecture: 32
 
-          - target: linux
-            architecture: arm64
-
           - target: windows
             architecture: arm64
 
@@ -138,7 +140,7 @@ jobs:
         set -eux
 
         case "${{ matrix.target }}${{ matrix.architecture }}" in
-          linux64)
+          linux*)
             echo "MARCH=64" >> $GITHUB_ENV
             sudo apt-get update -y
             sudo apt-get install --no-install-recommends -y \
@@ -184,7 +186,7 @@ jobs:
           gcc --version
 
     - name: Install haxe
-      uses: krdlab/setup-haxe@f0a0baa8ccdb1fe4fc316c8f30eb3ca77aa4ea4e
+      uses: Apprentice-Alchemist/setup-haxe@linux-arm64
       with:
         haxe-version: latest
 
@@ -193,7 +195,7 @@ jobs:
         set -eux
 
         haxelib setup ~/haxelib
-        haxelib install hashlink
+        haxelib dev hashlink $(pwd)/other/haxelib
         haxelib list
 
 
@@ -223,7 +225,7 @@ jobs:
                   -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
                   -DFLAT_INSTALL_TREE=ON
                 ;;
-              linux64)
+              linux*)
                 cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.cmake_configuration }} ;;
             esac
 
@@ -270,16 +272,16 @@ jobs:
 
         case "${{ matrix.build_system }}" in
           cmake*)
-            case "${{matrix.target}}" in
-              linux)
+            case "${{matrix.target}}${{matrix.architecture}}" in
+              linux64)
                 cmake --install build --prefix /tmp/hashlink
                 /tmp/hashlink/bin/hl --version
                 ;;
-              darwin)
+              darwin*)
                 cmake --install build --prefix /tmp/hashlink
                 if [ -f /tmp/hashlink/hl ]; then /tmp/hashlink/hl --version; fi
                 ;;
-              windows)
+              windows*)
                 export PATH=$(pwd)/build/bin:$PATH
                 ;;
             esac
@@ -329,6 +331,7 @@ jobs:
           darwin64)   platform_name=darwin ;;
           windows*)  platform_name=win${{matrix.architecture}} ;;
           linux64)   platform_name=linux-amd64 ;;
+          linuxarm64)   platform_name=linux-arm64 ;;
         esac
 
         short_commit=$(git rev-parse --short HEAD)
