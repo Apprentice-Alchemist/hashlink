@@ -10,7 +10,7 @@ INSTALL_INCLUDE_DIR ?= $(PREFIX)/include
 LIBS=fmt sdl ssl openal ui uv mysql sqlite heaps
 ARCH ?= $(shell uname -m)
 
-CFLAGS = -Wall -O3 -I src -std=c11 -D LIBHL_EXPORTS
+CFLAGS = -Wall -O0 -g -I src -std=c11 -D LIBHL_EXPORTS
 LFLAGS = -L. -lhl
 EXTRA_LFLAGS ?=
 LIBFLAGS =
@@ -39,6 +39,21 @@ STD = src/std/array.o src/std/buffer.o src/std/bytes.o src/std/cast.o src/std/da
 	src/std/file.o src/std/fun.o src/std/maps.o src/std/math.o src/std/obj.o src/std/random.o src/std/regexp.o \
 	src/std/socket.o src/std/string.o src/std/sys.o src/std/types.o src/std/ucs2.o src/std/thread.o src/std/process.o \
 	src/std/track.o
+ifeq ($(ARCH), x86_64)
+STD += src/std/dyncall/call.o
+ifeq ($(MARCH),32)
+STD += src/std/dyncall/call_i386_sysv.o
+else
+STD += src/std/dyncall/call_amd64_sysv.o
+endif
+else ifeq ($(ARCH), arm64)
+STD += src/std/dyncall/call_arm64_sysv.o src/std/dyncall/call.o
+else ifeq ($(ARCH), aarch64)
+STD += src/std/dyncall/call_arm64_sysv.o src/std/dyncall/call.o
+else
+STD += src/std/dyncall/call_libffi.o
+LHL_LINK_FLAGS += -lffi
+endif
 
 HL = src/code.o src/jit.o src/main.o src/module.o src/debugger.o src/profile.o
 
@@ -381,9 +396,12 @@ codesign_osx:
 	codesign --entitlements other/osx/entitlements.xml -fs hl-cert hl
 	rm key.pem cert.cer openssl.cnf
 
-.SUFFIXES : .c .o
+.SUFFIXES : .S .c .o
 
 .c.o :
+	${CC} ${CFLAGS} -o $@ -c $<
+
+.S.o :
 	${CC} ${CFLAGS} -o $@ -c $<
 
 clean_o:

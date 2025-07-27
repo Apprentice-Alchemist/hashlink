@@ -117,106 +117,26 @@ HL_PRIM bool hl_fun_compare( vdynamic *a, vdynamic *b ) {
 
 // ------------ DYNAMIC CALLS
 
-#ifdef HAVE_FFI
-#include <ffi.h>
-static ffi_type *to_ffi(hl_type *t) {
-  if (hl_is_ptr(t)) {
-    return &ffi_type_pointer;
-  } else {
-    switch (t->kind) {
-    case HVOID:
-      return &ffi_type_void;
-    case HUI8:
-      return &ffi_type_uint8;
-    case HUI16:
-      return &ffi_type_uint16;
-    case HI32:
-      return &ffi_type_sint32;
-    case HI64:
-      return &ffi_type_sint64;
-    case HF32:
-      return &ffi_type_float;
-    case HF64:
-      return &ffi_type_double;
-    case HBOOL:
-      return &ffi_type_uint8;
-    default:
-      abort();
-      break;
-    }
-  }
-}
+// #ifdef HAVE_FFI
 
-static void *hlc_static_call(void *fun, hl_type *ft, void **args, vdynamic *out) {
-  ffi_cif cif = {0};
-  ffi_type **atypes = alloca(sizeof(ffi_type *) * ft->fun->nargs);
-  void **avalues = alloca(sizeof(ffi_raw) * ft->fun->nargs);
-  for (int i = 0; i < ft->fun->nargs; i++) {
-    hl_type *t = ft->fun->args[i];
-    atypes[i] = to_ffi(t);
-    if (hl_is_ptr(t)) {
-      avalues[i] = &args[i];
-    } else {
-      avalues[i] = args[i];
-    }
-  }
-  ffi_prep_cif(&cif, FFI_DEFAULT_ABI, ft->fun->nargs, to_ffi(ft->fun->ret),
-               atypes);
-  ffi_call(&cif, fun, &out->v.ptr, avalues);
-  if (hl_is_ptr(ft->fun->ret)) {
-	return out->v.ptr;
-  } else {
-	return &out->v.ptr;
-  }
-}
+// #else
+ typedef void *(*fptr_static_call)(void *fun, hl_type *t, void **args, vdynamic *out);
+ typedef void *(*fptr_get_wrapper)(hl_type *t);
+ //static fptr_static_call hlc_static_call = NULL;
+ //static fptr_get_wrapper hlc_get_wrapper = NULL;
+// #endif
 
-static void call_wrapper(ffi_cif *cif, void *ret, void **args,
-                         void *user_data) {
-  for (int i = 0; i < cif->nargs; i++) {
-    if (cif->arg_types[i] == &ffi_type_pointer) {
-      args[i] = *(void **)args[i];
-    }
-  }
-  vdynamic dyn_ret = {0};
-  void *pret = hl_wrapper_call(args[0], args + 1, &dyn_ret);
-  if (cif->rtype->type == FFI_TYPE_VOID) {
-    return;
-  } else if (cif->rtype->type == FFI_TYPE_POINTER) {
-    *((void **)ret) = pret;
-  } else {
-    memcpy(ret, &dyn_ret.v.i64, sizeof(ret));
-  }
-}
+void *hl_static_call(void *fun, hl_type *t, void **args, vdynamic *out);
+void *hl_get_wrapper(hl_type *t);
 
-static void *hlc_get_wrapper(hl_type *t) {
-  void *codeloc;
-  ffi_closure *closure = ffi_closure_alloc(sizeof(ffi_closure), &codeloc);
-  ffi_cif *cif = malloc(sizeof(ffi_cif));
-  int nargs = t->fun->nargs;
-  ffi_type **atypes = malloc((sizeof *atypes) * (nargs + 1));
-  atypes[0] = &ffi_type_pointer;
-  for (int i = 0; i < t->fun->nargs; i++) {
-    atypes[i + 1] = to_ffi(t->fun->args[i]);
-  }
-  ffi_prep_cif(cif, FFI_DEFAULT_ABI, nargs + 1, to_ffi(t->fun->ret), atypes);
-  ffi_prep_closure_loc(closure, cif, call_wrapper, NULL, codeloc);
-  return codeloc;
-}
-#else
-typedef void *(*fptr_static_call)(void *fun, hl_type *t, void **args, vdynamic *out);
-typedef void *(*fptr_get_wrapper)(hl_type *t);
-static fptr_static_call hlc_static_call = NULL;
-static fptr_get_wrapper hlc_get_wrapper = NULL;
-#endif
-
-static int hlc_call_flags = 0;
+static int hlc_call_flags = 1;
 
 HL_PRIM void hl_setup_callbacks2( void *c, void *w, int flags ) {
-#ifndef HAVE_FFI
-	hlc_static_call = (fptr_static_call)c;
-	hlc_get_wrapper = (fptr_get_wrapper)w;
-	hlc_call_flags = flags;
-#endif
+// #ifndef HAVE_FFI
+ 	//hlc_static_call = (fptr_static_call)c;
+ 	//hlc_get_wrapper = (fptr_get_wrapper)w;
+ 	//hlc_call_flags = flags;
+// #endif
 }
 
 HL_PRIM void hl_setup_callbacks( void *c, void *w ) {
@@ -287,7 +207,7 @@ HL_PRIM vdynamic* hl_call_method( vdynamic *c, varray *args ) {
 		}
 		pargs[i] = p;
 	}
-	ret = hlc_static_call(hlc_call_flags & 1 ? &cl->fun : cl->fun,cl->t,pargs,&out);
+	ret = hl_static_call(hlc_call_flags & 1 ? &cl->fun : cl->fun,cl->t,pargs,&out);
 	tret = cl->t->fun->ret;
 	if( !hl_is_ptr(tret) ) {
 		vdynamic *r;
@@ -395,7 +315,7 @@ HL_PRIM void *hl_wrapper_call( void *_c, void **args, vdynamic *ret ) {
 			vargs[p++] = v;
 		}
 	}
-	pret = hlc_static_call(hlc_call_flags & 1 ? &w->fun : w->fun,w->hasValue ? w->t->fun->parent : w->t,vargs,ret);
+	pret = hl_static_call(hlc_call_flags & 1 ? &w->fun : w->fun,w->hasValue ? w->t->fun->parent : w->t,vargs,ret);
 	aret = hl_is_ptr(w->t->fun->ret) ? &pret : pret;
 	if( aret == NULL ) aret = &pret;
 	switch( tfun->ret->kind ) {
@@ -435,7 +355,7 @@ HL_PRIM void *hl_dyn_call_obj( vdynamic *o, hl_type *ft, int hfield, void **args
 			if( tmp ) {
 				vclosure_wrapper w;
 				w.cl.t = ft;
-				w.cl.fun = hlc_get_wrapper(ft);
+				w.cl.fun = hl_get_wrapper(ft);
 				w.cl.hasValue = 2;
 #				ifdef HL_64
 				w.cl.stackCount = 0;
@@ -458,7 +378,7 @@ HL_PRIM void *hl_dyn_call_obj( vdynamic *o, hl_type *ft, int hfield, void **args
 					vclosure_wrapper w;
 					vclosure tmp;
 					w.cl.t = ft;
-					w.cl.fun = hlc_get_wrapper(ft);
+					w.cl.fun = hl_get_wrapper(ft);
 					w.cl.hasValue = 2;
 #					ifdef HL_64
 					w.cl.stackCount = 0;
@@ -496,7 +416,7 @@ HL_PRIM void *hl_dyn_call_obj( vdynamic *o, hl_type *ft, int hfield, void **args
 
 HL_PRIM vclosure *hl_make_fun_wrapper( vclosure *v, hl_type *to ) {
 	vclosure_wrapper *c;
-	void *wrap = hlc_get_wrapper(to);
+	void *wrap = hl_get_wrapper(to);
 	if( wrap == NULL ) return NULL;
 	if( v->fun != fun_var_args && v->t->fun->nargs != to->fun->nargs )
 		return NULL;

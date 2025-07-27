@@ -75,6 +75,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
@@ -282,6 +283,7 @@
     <ClCompile Include="src\std\cast.c" />
     <ClCompile Include="src\std\date.c" />
     <ClCompile Include="src\std\debug.c" />
+    <ClCompile Include="src\std\dyncall\call.c" />
     <ClCompile Include="src\std\error.c" />
     <ClCompile Include="src\std\file.c" />
     <ClCompile Include="src\std\fun.c" />
@@ -307,7 +309,23 @@
     <ClInclude Include="include\pcre\pcre2_ucp.h" />
     <ClInclude Include="src\hl.h" />
   </ItemGroup>
+  <ItemGroup>
+    <MASM Include="src\std\dyncall\call_amd64_win64.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseVS2013|Win32'">true</ExcludedFromBuild>
+    </MASM>
+    <MASM Include="src\std\dyncall\call_win32.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseVS2013|x64'">true</ExcludedFromBuild>
+      <UseSafeExceptionHandlers Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</UseSafeExceptionHandlers>
+      <UseSafeExceptionHandlers Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</UseSafeExceptionHandlers>
+      <UseSafeExceptionHandlers Condition="'$(Configuration)|$(Platform)'=='ReleaseVS2013|Win32'">true</UseSafeExceptionHandlers>
+    </MASM>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
   </ImportGroup>
 </Project>
