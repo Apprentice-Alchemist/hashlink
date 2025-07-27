@@ -9,9 +9,9 @@ cmake_policy(SET CMP0042 NEW)
 
 if(WIN32)
     set(CMAKE_SYSTEM_VERSION 10.0)
-    project(hashlink C CXX) # C++ required for directx
+    project(hashlink C CXX ASM_MASM) # C++ required for directx
 else()
-    project(hashlink C)
+    project(hashlink C ASM)
 endif()
 
 include(GNUInstallDirs)
@@ -23,8 +23,20 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64")
     set(WITH_VM_DEFAULT OFF)
 endif()
 
+set(USE_LIBFFI_DEFAULT ON)
+if((CMAKE_SYSTEM_PROCESSOR MATCHES "i386|X86|aarch64|arm64|x86_64|AMD64"))
+    set(USE_LIBFFI_DEFAULT OFF)
+elseif(MSVC)
+    set(USE_LIBFFI_DEFAULT OFF)
+endif()
+
 option(WITH_VM "Whether to build the Hashlink virtual machine" ${WITH_VM_DEFAULT})
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+option(USE_LIBFFI "Whether to use libffi for dynamic calls" ${USE_LIBFFI_DEFAULT})
+
+if(USE_LIBFFI)
+    message(STATUS "Using libffi for dynamic calls")
+endif()
 
 # force Unicode over Multi-byte
 if(MSVC)
@@ -114,6 +126,34 @@ file(GLOB std_srcs
     src/std/process.c
 )
 
+if(USE_LIBFFI)
+    list(APPEND std_srcs src/std/dyncall/call_libffi.c)
+else()
+    list(APPEND std_srcs src/std/dyncall/call.c)
+    if(UNIX)
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+            list(APPEND std_srcs src/std/dyncall/call_amd64_sysv.S)
+        elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "i386")
+            list(APPEND std_srcs src/std/dyncall/call_i386_sysv.S)
+        elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+            list(APPEND std_srcs src/std/dyncall/call_arm64_sysv.S)
+        else()
+            message(FATAL_ERROR "No builtin assembly trampolines for ${CMAKE_SYSTEM_PROCESSOR}: try again with -DUSE_LIBFFI=ON")
+        endif()
+    elseif(MSVC)
+        if(((CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64" AND NOT CMAKE_VS_PLATFORM_NAME) OR (CMAKE_VS_PLATFORM_NAME MATCHES "x64")))
+            list(APPEND std_srcs src/std/dyncall/call_amd64_win64.asm)
+        elseif(((CMAKE_SYSTEM_PROCESSOR MATCHES "X86" AND NOT CMAKE_VS_PLATFORM_NAME) OR (CMAKE_VS_PLATFORM_NAME MATCHES "Win32")))
+            list(APPEND std_srcs src/std/dyncall/call_win32.asm)
+            set_source_files_properties(src/std/dyncall/call_win32.asm PROPERTIES COMPILE_FLAGS "/safeseh" )
+        else()
+            message(FATAL_ERROR "No builtin assembly trampolines for ${CMAKE_SYSTEM_PROCESSOR}: try again with -DUSE_LIBFFI=ON")
+        endif()
+    else()
+        message(FATAL_ERROR "Neither UNIX nor MSVC")
+    endif()
+endif()
+
 if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
     list(APPEND std_srcs
         include/mdbg/mdbg.c
@@ -200,6 +240,10 @@ else()
     else()
         target_link_libraries(libhl pthread)
     endif()
+endif()
+
+if (USE_LIBFFI)
+    target_link_libraries(libhl ffi)
 endif()
 
 if(BUILD_TESTING)

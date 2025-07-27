@@ -157,6 +157,9 @@
     <ClCompile Include="include\pcre\pcre2_xclass.c">
       <Filter>pcre</Filter>
     </ClCompile>
+    <ClCompile Include="src\std\dyncall\call.c" >
+      <Filter>std</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\hl.h" />
@@ -175,5 +178,9 @@
     <ClInclude Include="include\pcre\pcre2_ucp.h">
       <Filter>pcre</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="src\std\dyncall\call_amd64_win64.asm" />
+    <MASM Include="src\std\dyncall\call_win32.asm" />
   </ItemGroup>
 </Project>
