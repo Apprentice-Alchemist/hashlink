@@ -9,9 +9,9 @@ cmake_policy(SET CMP0042 NEW)
 
 if(WIN32)
     set(CMAKE_SYSTEM_VERSION 10.0)
-    project(hashlink C CXX) # C++ required for directx
+    project(hashlink C CXX ASM) # C++ required for directx
 else()
-    project(hashlink C)
+    project(hashlink C ASM)
 endif()
 
 include(GNUInstallDirs)
@@ -23,8 +23,14 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64")
     set(WITH_VM_DEFAULT OFF)
 endif()
 
+set(USE_LIBFFI_DEFAULT ON)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|x86_64")
+    set(USE_LIBFFI_DEFAULT OFF)
+endif()
+
 option(WITH_VM "Whether to build the Hashlink virtual machine" ${WITH_VM_DEFAULT})
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+option(USE_LIBFFI "Whether to use libffi for dynamic calls" ${USE_LIBFFI_DEFAULT})
 
 # force Unicode over Multi-byte
 if(MSVC)
@@ -114,6 +120,12 @@ file(GLOB std_srcs
     src/std/process.c
 )
 
+if(USE_LIBFFI)
+    list(APPEND std_srcs src/std/dyncall/call_libffi.c)
+elseif(UNIX AND (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64"))
+    list(APPEND std_srcs src/std/dyncall/call.c src/std/dyncall/call_amd64_sysv.S)
+endif()
+
 if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
     list(APPEND std_srcs
         include/mdbg/mdbg.c
@@ -200,6 +212,10 @@ else()
     else()
         target_link_libraries(libhl pthread)
     endif()
+endif()
+
+if (USE_LIBFFI)
+    target_link_libraries(libhl ffi)
 endif()
 
 if(BUILD_TESTING)
