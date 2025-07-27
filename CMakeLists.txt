@@ -38,6 +38,18 @@ endif()
 option(DOWNLOAD_DEPENDENCIES "Download & build third-party dependencies" ${_DOWNLOAD_DEPENDENCIES})
 option(WITH_SYSTEM_PCRE2 "Link libhl against system installation of pcre2" OFF)
 
+set(USE_LIBFFI_DEFAULT ON)
+if((CMAKE_SYSTEM_PROCESSOR MATCHES "i386|i686|X86|aarch64|arm64|x86_64|AMD64|armv7"))
+    set(USE_LIBFFI_DEFAULT OFF)
+elseif(MSVC)
+    set(USE_LIBFFI_DEFAULT OFF)
+endif()
+option(USE_LIBFFI "Whether to use libffi for dynamic calls" ${USE_LIBFFI_DEFAULT})
+
+if(USE_LIBFFI)
+    message(STATUS "Using libffi for dynamic calls")
+endif()
+
 if(MSVC)
     if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
         set (CMAKE_INSTALL_PREFIX "C:/HaxeToolkit/hashlink" CACHE PATH "default install path" FORCE)
@@ -137,6 +149,32 @@ file(GLOB std_srcs
     src/std/thread.c
     src/std/process.c
 )
+
+if(USE_LIBFFI)
+    list(APPEND std_srcs src/std/dyncall/call_libffi.c)
+else()
+    list(APPEND std_srcs src/std/dyncall/call.c)
+    if(UNIX)
+        enable_language(ASM)
+        list(APPEND std_srcs src/std/dyncall/call_sysv.S)
+    elseif(MSVC)
+        enable_language(ASM_MASM)
+        if(((CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64" AND NOT CMAKE_VS_PLATFORM_NAME) OR (CMAKE_VS_PLATFORM_NAME MATCHES "x64")))
+            list(APPEND std_srcs src/std/dyncall/call_amd64_win64.asm)
+            set_source_files_properties(src/std/dyncall/call_amd64_win64.asm PROPERTIES LANGUAGE ASM_MASM)
+        elseif(((CMAKE_SYSTEM_PROCESSOR MATCHES "X86" AND NOT CMAKE_VS_PLATFORM_NAME) OR (CMAKE_VS_PLATFORM_NAME MATCHES "Win32")))
+            list(APPEND std_srcs src/std/dyncall/call_win32.asm)
+            set_source_files_properties(src/std/dyncall/call_win32.asm PROPERTIES LANGUAGE ASM_MASM COMPILE_FLAGS "/safeseh" )
+        else()
+            message(FATAL_ERROR "No builtin assembly trampolines for ${CMAKE_SYSTEM_PROCESSOR}: try again with -DUSE_LIBFFI=ON")
+        endif()
+    elseif(MINGW)
+        enable_language(ASM)
+        list(APPEND std_srcs src/std/dyncall/call_win.S)
+    else()
+        message(FATAL_ERROR "Neither UNIX nor MSVC")
+    endif()
+endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
     list(APPEND std_srcs
@@ -246,6 +284,18 @@ if (WITH_VM)
 
     if (WIN32)
         target_link_libraries(hl user32)
+    endif()
+endif()
+
+if(WIN32)
+    target_link_libraries(libhl ws2_32 user32 winmm)
+else()
+    target_link_libraries(libhl m dl)
+
+    if(ANDROID)
+        target_link_libraries(libhl log)
+    else()
+        target_link_libraries(libhl pthread)
     endif()
 endif()
 
@@ -418,6 +468,13 @@ if(BUILD_TESTING)
     )
     add_test(NAME uvsample
         COMMAND uvsample 6002
+    )
+
+    add_executable(dyncall_test src/std/dyncall/dyncall_test.c)
+    target_link_libraries(dyncall_test libhl)
+
+    add_test(NAME dyncall
+        COMMAND dyncall_test
     )
 endif()
 

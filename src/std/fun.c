@@ -113,106 +113,26 @@ HL_PRIM bool hl_fun_compare( vdynamic *a, vdynamic *b ) {
 
 // ------------ DYNAMIC CALLS
 
-#ifdef HAVE_FFI
-#include <ffi.h>
-static ffi_type *to_ffi(hl_type *t) {
-  if (hl_is_ptr(t)) {
-    return &ffi_type_pointer;
-  } else {
-    switch (t->kind) {
-    case HVOID:
-      return &ffi_type_void;
-    case HUI8:
-      return &ffi_type_uint8;
-    case HUI16:
-      return &ffi_type_uint16;
-    case HI32:
-      return &ffi_type_sint32;
-    case HI64:
-      return &ffi_type_sint64;
-    case HF32:
-      return &ffi_type_float;
-    case HF64:
-      return &ffi_type_double;
-    case HBOOL:
-      return &ffi_type_uint8;
-    default:
-      abort();
-      break;
-    }
-  }
-}
+// #ifdef HAVE_FFI
 
-static void *hlc_static_call(void *fun, hl_type *ft, void **args, vdynamic *out) {
-  ffi_cif cif = {0};
-  ffi_type **atypes = alloca(sizeof(ffi_type *) * ft->fun->nargs);
-  void **avalues = alloca(sizeof(ffi_raw) * ft->fun->nargs);
-  for (int i = 0; i < ft->fun->nargs; i++) {
-    hl_type *t = ft->fun->args[i];
-    atypes[i] = to_ffi(t);
-    if (hl_is_ptr(t)) {
-      avalues[i] = &args[i];
-    } else {
-      avalues[i] = args[i];
-    }
-  }
-  ffi_prep_cif(&cif, FFI_DEFAULT_ABI, ft->fun->nargs, to_ffi(ft->fun->ret),
-               atypes);
-  ffi_call(&cif, fun, &out->v.ptr, avalues);
-  if (hl_is_ptr(ft->fun->ret)) {
-	return out->v.ptr;
-  } else {
-	return &out->v.ptr;
-  }
-}
+// #else
+ typedef void *(*fptr_static_call)(void *fun, hl_type *t, void **args, vdynamic *out);
+ typedef void *(*fptr_get_wrapper)(hl_type *t);
+ //static fptr_static_call hlc_static_call = NULL;
+ //static fptr_get_wrapper hlc_get_wrapper = NULL;
+// #endif
 
-static void call_wrapper(ffi_cif *cif, void *ret, void **args,
-                         void *user_data) {
-  for (int i = 0; i < cif->nargs; i++) {
-    if (cif->arg_types[i] == &ffi_type_pointer) {
-      args[i] = *(void **)args[i];
-    }
-  }
-  vdynamic dyn_ret = {0};
-  void *pret = hl_wrapper_call(args[0], args + 1, &dyn_ret);
-  if (cif->rtype->type == FFI_TYPE_VOID) {
-    return;
-  } else if (cif->rtype->type == FFI_TYPE_POINTER) {
-    *((void **)ret) = pret;
-  } else {
-    memcpy(ret, &dyn_ret.v.i64, sizeof(ret));
-  }
-}
+void *hl_static_call(void *fun, hl_type *t, void **args, vdynamic *out);
+void *hl_get_wrapper(hl_type *t);
 
-static void *hlc_get_wrapper(hl_type *t) {
-  void *codeloc;
-  ffi_closure *closure = ffi_closure_alloc(sizeof(ffi_closure), &codeloc);
-  ffi_cif *cif = malloc(sizeof(ffi_cif));
-  int nargs = t->fun->nargs;
-  ffi_type **atypes = malloc((sizeof *atypes) * (nargs + 1));
-  atypes[0] = &ffi_type_pointer;
-  for (int i = 0; i < t->fun->nargs; i++) {
-    atypes[i + 1] = to_ffi(t->fun->args[i]);
-  }
-  ffi_prep_cif(cif, FFI_DEFAULT_ABI, nargs + 1, to_ffi(t->fun->ret), atypes);
-  ffi_prep_closure_loc(closure, cif, call_wrapper, NULL, codeloc);
-  return codeloc;
-}
-#else
-typedef void *(*fptr_static_call)(void *fun, hl_type *t, void **args, vdynamic *out);
-typedef void *(*fptr_get_wrapper)(hl_type *t);
-static fptr_static_call hlc_static_call = NULL;
-static fptr_get_wrapper hlc_get_wrapper = NULL;
-#endif
-
-static int hlc_call_flags = 0;
+static int hlc_call_flags = 1;
 
 HL_PRIM void hl_setup_callbacks2( void *c, void *w, int flags ) {
-#ifndef HAVE_FFI
-	hlc_static_call = (fptr_static_call)c;
-	hlc_get_wrapper = (fptr_get_wrapper)w;
-	hlc_call_flags = flags;
-#endif
+// #ifndef HAVE_FFI
+ 	//hlc_static_call = (fptr_static_call)c;
+ 	//hlc_get_wrapper = (fptr_get_wrapper)w;
+ 	//hlc_call_flags = flags;
+// #endif
 }
 
 HL_PRIM void hl_setup_callbacks( void *c, void *w ) {
@@ -225,15 +145,20 @@ HL_PRIM void hl_setup_callbacks( void *c, void *w ) {
 HL_PRIM vdynamic* hl_call_method( vdynamic *c, varray *args ) {
 	vclosure *cl = (vclosure*)c;
 	vdynamic **vargs = hl_aptr(args,vdynamic*);
-	void *pargs[HL_MAX_ARGS];
+	void *pargs_storage[HL_MAX_ARGS];
+	void **pargs = pargs_storage;
 	void *ret;
-	union { double d; int i; float f; int64 i64; } tmp[HL_MAX_ARGS];
+	union tmp { double d; int i; float f; int64 i64; };
+	union tmp tmp_storage[HL_MAX_ARGS];
+	union tmp *tmp = tmp_storage;
 	hl_type *tret;
 	vdynamic *dret;
 	vdynamic out;
 	int i;
-	if( args->size > HL_MAX_ARGS )
-		hl_error("Too many arguments");
+	if( args->size > HL_MAX_ARGS ) {
+		pargs = hl_gc_alloc_raw(sizeof(void *) * args-> size);
+		tmp = hl_gc_alloc_raw(sizeof(*tmp) * args->size);
+	}
 	if( cl->hasValue ) {
 		if( cl->hasValue == 2 ) {
 			cl = ((vclosure_wrapper*)cl)->wrappedFun;
@@ -284,7 +209,7 @@ HL_PRIM vdynamic* hl_call_method( vdynamic *c, varray *args ) {
 		}
 		pargs[i] = p;
 	}
-	ret = hl_setup.static_call(hl_setup.static_call_ref ? &cl->fun : cl->fun,cl->t,pargs,&out);
+	ret = hl_static_call(hlc_call_flags & 1 ? &cl->fun : cl->fun,cl->t,pargs,&out);
 	tret = cl->t->fun->ret;
 	if( !hl_is_ptr(tret) ) {
 		vdynamic *r;
@@ -313,23 +238,34 @@ HL_PRIM vdynamic *hl_dyn_call( vclosure *c, vdynamic **args, int nargs ) {
 		vdynamic *args[HL_MAX_ARGS+1];
 	} tmp;
 	vclosure ctmp;
+	varray *arr = &tmp.a;
 	int i = 0;
-	if( nargs > HL_MAX_ARGS ) hl_error("Too many arguments");
-	tmp.a.t = &hlt_array;
-	tmp.a.at = &hlt_dyn;
-	tmp.a.size = nargs;
+
 	if( c->hasValue && c->t->fun->nargs >= 0 && c->t->fun->parent != NULL ) {
+		if( nargs > HL_MAX_ARGS ) {
+			arr = hl_alloc_array(&hlt_dyn, nargs + 1);
+		} else {
+			tmp.a.t = &hlt_array;
+			tmp.a.at = &hlt_dyn;
+			tmp.a.size = nargs + 1;
+		}
 		ctmp.t = c->t->fun->parent;
 		ctmp.hasValue = 0;
 		ctmp.fun = c->fun;
-		tmp.args[0] = hl_make_dyn(&c->value,ctmp.t->fun->args[0]);
-		tmp.a.size++;
+		hl_aptr(arr, vdynamic*)[0] = hl_make_dyn(&c->value,ctmp.t->fun->args[0]);
 		for(i=0;i<nargs;i++)
-			tmp.args[i+1] = args[i];
+			hl_aptr(arr, vdynamic*)[i+1] = args[i];
 		c = &ctmp;
 	} else {
+		if( nargs > HL_MAX_ARGS ) {
+			arr = hl_alloc_array(&hlt_dyn, nargs);
+		} else {
+			tmp.a.t = &hlt_array;
+			tmp.a.at = &hlt_dyn;
+			tmp.a.size = nargs;
+		}
 		for(i=0;i<nargs;i++)
-			tmp.args[i] = args[i];
+			hl_aptr(arr, vdynamic*)[i] = args[i];
 	}
 	return hl_call_method((vdynamic*)c,&tmp.a);
 }
@@ -337,8 +273,10 @@ HL_PRIM vdynamic *hl_dyn_call( vclosure *c, vdynamic **args, int nargs ) {
 HL_PRIM void *hl_wrapper_call( void *_c, void **args, vdynamic *ret ) {
 	vclosure_wrapper *c = (vclosure_wrapper*)_c;
 	hl_type_fun *tfun = c->cl.t->fun;
-	union { double d; int i; float f; int64 i64; } tmp[HL_MAX_ARGS];
-	void *vargs[HL_MAX_ARGS+1];
+	union tmp_val { double d; int i; float f; int64 i64; } tmp_storage[HL_MAX_ARGS];
+	union tmp_val *tmp = tmp_storage;
+	void *vargs_storage[HL_MAX_ARGS+1];
+	void **vargs = vargs_storage;
 	vdynamic out;
 	vclosure *w = c->wrappedFun;
 	int i;
@@ -359,6 +297,10 @@ HL_PRIM void *hl_wrapper_call( void *_c, void **args, vdynamic *ret ) {
 			vargs[p++] = (vdynamic*)w->value;
 		vargs[p++] = (vdynamic*)a;
 	} else {
+		if(w->t->fun->nargs > HL_MAX_ARGS) {
+			tmp = hl_gc_alloc_raw(sizeof(union tmp_val) * w->t->fun->nargs);
+			vargs = hl_gc_alloc_raw(sizeof(void*) * (w->t->fun->nargs + 1));
+		}
 		if( w->hasValue )
 			vargs[p++] = (vdynamic*)w->value;
 		for(i=0;i<w->t->fun->nargs;i++) {
@@ -393,9 +335,10 @@ HL_PRIM void *hl_wrapper_call( void *_c, void **args, vdynamic *ret ) {
 			vargs[p++] = v;
 		}
 	}
-	pret = hl_setup.static_call(hl_setup.static_call_ref ? &w->fun : w->fun,w->hasValue ? w->t->fun->parent : w->t,vargs,ret);
+	pret = hl_static_call(hlc_call_flags & 1 ? &w->fun : w->fun,w->hasValue ? w->t->fun->parent : w->t,vargs,ret);
 	aret = hl_is_ptr(w->t->fun->ret) ? &pret : pret;
 	if( aret == NULL ) aret = &pret;
+	ret->t = tfun->ret;
 	switch( tfun->ret->kind ) {
 	case HVOID:
 		return NULL;
@@ -434,7 +377,7 @@ HL_PRIM void *hl_dyn_call_obj( vdynamic *o, hl_type *ft, int hfield, void **args
 			if( tmp ) {
 				vclosure_wrapper w;
 				w.cl.t = ft;
-				w.cl.fun = hl_setup.get_wrapper(ft);
+				w.cl.fun = hl_get_wrapper(ft);
 				w.cl.hasValue = 2;
 #				ifdef HL_64
 				w.cl.stackCount = 0;
@@ -457,7 +400,7 @@ HL_PRIM void *hl_dyn_call_obj( vdynamic *o, hl_type *ft, int hfield, void **args
 					vclosure_wrapper w;
 					vclosure tmp;
 					w.cl.t = ft;
-					w.cl.fun = hl_setup.get_wrapper(ft);
+					w.cl.fun = hl_get_wrapper(ft);
 					w.cl.hasValue = 2;
 #					ifdef HL_64
 					w.cl.stackCount = 0;
@@ -495,7 +438,7 @@ HL_PRIM void *hl_dyn_call_obj( vdynamic *o, hl_type *ft, int hfield, void **args
 
 HL_PRIM vclosure *hl_make_fun_wrapper( vclosure *v, hl_type *to ) {
 	vclosure_wrapper *c;
-	void *wrap = hl_setup.get_wrapper(to);
+	void *wrap = hl_get_wrapper(to);
 	if( wrap == NULL ) return NULL;
 	if( v->fun != fun_var_args && v->t->fun->nargs != to->fun->nargs )
 		return NULL;
