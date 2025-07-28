@@ -45,12 +45,10 @@ STD += src/std/dyncall/call_arm64_sysv.o src/std/dyncall/call.o
 else ifeq ($(ARCH), aarch64)
 STD += src/std/dyncall/call_arm64_sysv.o src/std/dyncall/call.o
 else
-USE_LIBFFI = true
+STD += src/std/dyncall/call_libffi.o
+LHL_LINK_FLAGS += -lffi
 endif
 
-ifdef USE_LIBFFI
-STD += src/std/dyncall/call_libffi.o
-endif
 HL = src/code.o src/jit.o src/main.o src/module.o src/debugger.o src/profile.o
 
 FMT_INCLUDE = -I include/mikktspace -I include/minimp3
@@ -167,9 +165,7 @@ BREW_OPENAL_PREFIX := $(shell brew --prefix openal-soft)
 
 CFLAGS += -m$(MARCH) -I include -I $(BREW_PREFIX)/include -I $(BREW_OPENAL_PREFIX)/include -Dopenal_soft -DGL_SILENCE_DEPRECATION
 LFLAGS += -Wl,-export_dynamic
-ifdef USE_LIBFFI
-LHL_LINK_FLAGS += -lffi
-endif
+
 ifdef OSX_SDK
 ISYSROOT = $(shell xcrun --sdk macosx$(OSX_SDK) --show-sdk-path)
 CFLAGS += -isysroot $(ISYSROOT)
@@ -190,9 +186,7 @@ endif
 
 CFLAGS += -arch $(ARCH)
 LFLAGS += -arch $(ARCH)
-ifdef USE_LIBFFI
-LHL_LINK_FLAGS += -lffi
-endif
+
 LFLAGS += -rpath @executable_path -rpath $(INSTALL_LIB_DIR)
 LIBFLAGS += -rpath @executable_path -rpath $(INSTALL_LIB_DIR)
 LHL_LINK_FLAGS += -install_name @rpath/libhl.dylib

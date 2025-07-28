@@ -124,6 +124,8 @@ if(USE_LIBFFI)
     list(APPEND std_srcs src/std/dyncall/call_libffi.c)
 elseif(UNIX AND (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64"))
     list(APPEND std_srcs src/std/dyncall/call.c src/std/dyncall/call_amd64_sysv.S)
+elseif(UNIX AND (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64"))
+    list(APPEND std_srcs src/std/dyncall/call.c src/std/dyncall/call_arm64_sysv.S)
 endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "Darwin")

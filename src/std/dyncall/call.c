@@ -6,6 +6,9 @@
 #ifdef __x86_64__
 enum { CPU_CALL_REGS = 6 };
 enum { FPU_CALL_REGS = 8 };
+#elif defined(__aarch64__)
+enum { CPU_CALL_REGS = 8 };
+enum { FPU_CALL_REGS = 8 };
 #elif defined(__i386__)
 enum { CPU_CALL_REGS = 0 };
 enum { FPU_CALL_REGS = 0 };
