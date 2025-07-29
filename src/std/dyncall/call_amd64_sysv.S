@@ -5,9 +5,14 @@
 // - scratch regs: rax, rdi, rsi, rdx, rcx, r8, r9, r10, r11
 // - return in rax:
 
+#ifdef __APPLE__
+.global _static_call_impl
+_static_call_impl:
+#else
 .global static_call_impl
 .type static_call_impl,@function
 static_call_impl:
+#endif
 	.cfi_startproc
 	push   %rbp
 	.cfi_adjust_cfa_offset 8
@@ -42,33 +47,38 @@ static_call_impl:
 	mov    -0x8(%rbp),%r10
 	mov    -0x10(%rbp),%r11
 	cmpl $0x1, %r10d
-	je .Lret_void
+	je 4f
 	cmpl $0x2, %r10d
-	je .Lret_int
+	je 5f
 	cmpl $0x3, %r10d
-	je .Lret_float
+	je 6f
 	cmpl $0x4, %r10d
-	je .Lret_final
-	.Lret_void:
+	je 7f
+	4:
 		xor %rax, %rax
-		jmp .Lret_final
-	.Lret_int:
+		jmp 7f
+	5:
 		mov %rax, (%r11)
 		mov %r11, %rax
-		jmp .Lret_final
-	.Lret_float:
+		jmp 7f
+	6:
 		movsd %xmm0, (%r11)
 		mov %r11, %rax
-	.Lret_final:
-	mov    %rbp,%rsp
-	pop    %rbp
+	7:
+	movq    %rbp,%rsp
+	popq    %rbp
 	.cfi_def_cfa rsp, 8
 	retq
 	.cfi_endproc
 
+#ifdef __APPLE__
+.global _wrapper_call_impl
+_wrapper_call_impl:
+#else
 .global wrapper_call_impl
 .type wrapper_call_impl,@function
 wrapper_call_impl:
+#endif
 	.cfi_startproc
 	pushq   %rbp
 	.cfi_adjust_cfa_offset 8

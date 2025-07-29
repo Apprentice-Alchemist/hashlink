@@ -1,6 +1,11 @@
+#ifdef __APPLE__
+.global _static_call_impl
+_static_call_impl:
+#else
 .global static_call_impl
 .type static_call_impl,@function
 static_call_impl:
+#endif
     .cfi_startproc
     stp fp, lr, [sp, #-16]!
     .cfi_adjust_cfa_offset 16
@@ -31,33 +36,38 @@ static_call_impl:
     1: blr x9
 	ldp x3, x4, [fp, -16]
 	cmp x3, 1
-	beq .Lret_void
+	beq 4f
 	cmp x3, 2
-	beq .Lret_int
+	beq 5f
 	cmp x3, 3
-	beq .Lret_float
+	beq 6f
 	cmp x3, 4
-	beq .Lret_final
-	.Lret_void:
+	beq 7f
+	4:
 		mov x0, xzr
-		b .Lret_final
-	.Lret_int:
+		b 7f
+	5:
 		str x0, [x4]
 		mov x0, x4
-		b .Lret_final
-	.Lret_float:
+		b 7f
+	6:
 		str d0, [x4]
 		mov x0, x4
-	.Lret_final:
+	7:
     mov sp, fp
     ldp fp, lr, [sp], #16
     .cfi_def_cfa sp, 0
     ret
     .cfi_endproc
 
+#ifdef __APPLE__
+.global _wrapper_call_impl
+_wrapper_call_impl:
+#else
 .global wrapper_call_impl
 .type wrapper_call_impl,@function
 wrapper_call_impl:
+#endif
     .cfi_startproc
     stp fp, lr, [sp, #-16]!
     .cfi_adjust_cfa_offset 16
