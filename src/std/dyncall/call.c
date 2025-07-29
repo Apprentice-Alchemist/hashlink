@@ -1,6 +1,7 @@
 #include <alloca.h>
 #include <assert.h>
 #include <hl.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 #ifdef __x86_64__
@@ -27,7 +28,7 @@ enum ret_flags {
 };
 
 void *static_call_impl(void *fn_ptr, void *stack_begin, void *stack_end,
-                       int ret_flags, void **ret_ptr);
+                       int ret_flags, void *ret_ptr);
 
 void *hlc_static_call(void *fun, hl_type *ty, void **args, vdynamic *out) {
   size_t stack_count = 0;
@@ -113,8 +114,8 @@ void *hlc_static_call(void *fun, hl_type *ty, void **args, vdynamic *out) {
   enum ret_flags ret_flags;
   switch (ty->fun->ret->kind) {
   case HVOID:
-        ret_flags = ret_void;
-        break;
+    ret_flags = ret_void;
+    break;
   case HBOOL:
   case HUI8:
   case HUI16:
@@ -132,28 +133,38 @@ void *hlc_static_call(void *fun, hl_type *ty, void **args, vdynamic *out) {
     break;
   }
 
-  return static_call_impl(fun, data + stack_count, data, ret_flags, &out->v.ptr);
+  return static_call_impl(fun, data + stack_count, data, ret_flags, &out->v);
 }
 
 void *wrapper_inner(vclosure_wrapper *c, struct regs *regs, size_t *stack,
                     vdynamic *ret) {
   hl_type_fun *fun = c->cl.t->fun;
   void **args = alloca(fun->nargs * sizeof(void *));
-  int ncpu = 1;
+  int ncpu = CPU_CALL_REGS == 0 ? 0 : 1;
   int nfpu = 0;
-  int nstack = 0;
+  int nstack = CPU_CALL_REGS == 0 ? 1 : 0;
   for (int i = 0; i < fun->nargs; i++) {
     if (hl_is_dynamic(fun->args[i])) {
       if (ncpu < CPU_CALL_REGS) {
         args[i] = (void *)regs->cpu[ncpu++];
       } else {
         args[i] = (void *)stack[nstack++];
+#ifndef HL_64
+        if (fun->args[i]->kind == HI64) {
+          nstack++;
+        }
+#endif
       }
     } else if (fun->args[i]->kind == HF32 || fun->args[i]->kind == HF64) {
       if (nfpu < FPU_CALL_REGS) {
         args[i] = &regs->fpu[nfpu++];
       } else {
         args[i] = (double *)&stack[nstack++];
+#ifndef HL_64
+        if (fun->args[i]->kind == HF64) {
+          nstack++;
+        }
+#endif
       }
     } else {
       if (ncpu < FPU_CALL_REGS) {
@@ -171,6 +182,7 @@ void *wrapper_inner(vclosure_wrapper *c, struct regs *regs, size_t *stack,
   case HI32:
   case HI64:
   case HGUID:
+    // Todo HI64 32-bit
     hl_wrapper_call(c, args, ret);
     return ret->v.ptr;
   case HF32:

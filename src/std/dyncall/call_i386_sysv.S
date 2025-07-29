@@ -1,0 +1,78 @@
+.global static_call_impl
+.type static_call_impl,@function
+static_call_impl:
+	.cfi_startproc
+	push   %ebp
+	.cfi_adjust_cfa_offset 8
+	.cfi_offset ebp, -8
+	mov    %esp,%ebp
+	.cfi_def_cfa_register ebp
+	mov 0x10(%ebp), %eax
+	2:  cmp    0xc(%ebp), %eax
+		je     3f
+		sub    $0x8,%eax
+		push   (%eax)
+		jmp    2b
+	3: call *0x8(%ebp)
+	cmpl $0x1, 0x14(%Ebp)
+	je .Lret_void
+	cmpl $0x2, 0x14(%Ebp)
+	je .Lret_int
+	cmpl $0x3, 0x14(%Ebp)
+	je .Lret_float
+	cmpl $0x4, 0x14(%Ebp)
+	je .Lret_final
+	.Lret_void:
+		xor %eax, %eax
+		jmp .Lret_final
+	.Lret_int:
+		mov 0x18(%ebp), %ecx 
+		mov %eax, (%ecx)
+		mov %ecx, %ecx
+		jmp .Lret_final
+	.Lret_float:
+		mov 0x18(%ebp), %ecx 
+		movsd %xmm0, (%ecx)
+		mov %ecx, %ecx
+	.Lret_final:
+	mov    %ebp,%esp
+	pop    %ebp
+	.cfi_def_cfa esp, 4
+	ret
+	.cfi_endproc
+
+.global wrapper_call_impl
+.type wrapper_call_impl,@function
+wrapper_call_impl:
+	.cfi_startproc
+	push   %ebp
+	.cfi_adjust_cfa_offset 8
+	.cfi_offset ebp, -8
+	mov    %esp,%ebp
+	.cfi_def_cfa_register ebp
+	sub $0x10, %esp
+	lea 0x8(%ebp), %eax
+	push %eax
+	xor %eax, %eax
+	push %eax
+	push 0x8(%ebp)
+	mov 0x8(%ebp), %ecx # v
+	mov (%ebp), %ecx # v->cl.t
+	mov 0x8(%ecx), %ecx # v->cl.t->fun
+	mov 0x8(%ecx), %ecx # v->cl.t->fun->ret
+	mov (%ecx), %ecx # v->cl.t->fun->ret->kind
+	cmpl    $0x5, %ecx
+	je      2f
+	cmpl    $0x6, %ecx
+	je      2f
+	call   wrapper_inner
+	jmp     3f
+	2: 
+	call   wrapper_inner
+	movsd   (%eax), %xmm0
+	3:
+	mov    %ebp,%esp
+	pop    %ebp
+	.cfi_def_cfa esp, 4
+	ret
+	.cfi_endproc
