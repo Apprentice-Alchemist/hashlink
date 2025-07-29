@@ -72,9 +72,11 @@ static_call_impl:
 	.cfi_endproc
 
 #ifdef __APPLE__
+#define CSYM(name) _ ##name
 .global _wrapper_call_impl
 _wrapper_call_impl:
 #else
+#define CSYM(name) name
 .global wrapper_call_impl
 .type wrapper_call_impl,@function
 wrapper_call_impl:
@@ -112,10 +114,10 @@ wrapper_call_impl:
 	je      2f
 	cmpl    $0x6, %r10d
 	je      2f
-	callq   wrapper_inner
+	callq   CSYM(wrapper_inner)
 	jmp     3f
 	2: 
-	callq   wrapper_inner
+	callq   CSYM(wrapper_inner)
 	movsd   (%rax), %xmm0
 	3:
 	movq    %rbp, %rsp
