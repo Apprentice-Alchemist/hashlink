@@ -9,7 +9,7 @@ static_call_impl PROC FRAME
 	mov r10, rcx
 	mov rax, rdx
 	mov r11, r8
-	mov [rbp + 16], rcx
+	COMMENT # mov [rbp + 16], rcx #
 	mov [rbp + 24], rdx
 	mov [rbp + 32], r8
 	mov [rbp + 40], r9

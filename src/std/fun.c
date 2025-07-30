@@ -119,10 +119,10 @@ HL_PRIM bool hl_fun_compare( vdynamic *a, vdynamic *b ) {
 // #ifdef HAVE_FFI
 
 // #else
-// typedef void *(*fptr_static_call)(void *fun, hl_type *t, void **args, vdynamic *out);
-// typedef void *(*fptr_get_wrapper)(hl_type *t);
-// static fptr_static_call hlc_static_call = NULL;
-// static fptr_get_wrapper hlc_get_wrapper = NULL;
+ typedef void *(*fptr_static_call)(void *fun, hl_type *t, void **args, vdynamic *out);
+ typedef void *(*fptr_get_wrapper)(hl_type *t);
+ //static fptr_static_call hlc_static_call = NULL;
+ //static fptr_get_wrapper hlc_get_wrapper = NULL;
 // #endif
 
 void *hlc_static_call(void *fun, hl_type *t, void **args, vdynamic *out);
@@ -132,9 +132,9 @@ static int hlc_call_flags = 0;
 
 HL_PRIM void hl_setup_callbacks2( void *c, void *w, int flags ) {
 // #ifndef HAVE_FFI
-// 	hlc_static_call = (fptr_static_call)c;
-// 	hlc_get_wrapper = (fptr_get_wrapper)w;
-// 	hlc_call_flags = flags;
+ 	//hlc_static_call = (fptr_static_call)c;
+ 	//hlc_get_wrapper = (fptr_get_wrapper)w;
+ 	hlc_call_flags = flags;
 // #endif
 }
 
