@@ -1,5 +1,4 @@
 .686
-.XMM
 .MODEL FLAT, C
 _text SEGMENT
 static_call_impl PROC FAR C EXPORT
@@ -36,7 +35,7 @@ static_call_impl PROC FAR C EXPORT
 		jmp ret_final
 	ret_float:
 		mov eax, [ebp + 24]
-		movsd qword ptr [eax], xmm0
+		fld qword ptr [eax]
 		jmp ret_final
 	ret_final:
 	mov esp, ebp
@@ -64,13 +63,18 @@ wrapper_call_impl PROC FAR C EXPORT
 	mov ecx, [ecx + 8]
 	mov ecx, [ecx]
 	cmp ecx, 5
-	jz ret_float
+	jz ret_single
 	cmp ecx, 6
-	jz ret_float
+	jz ret_double
 	call wrapper_inner
 	jmp final
-	ret_float: call wrapper_inner
-	movsd xmm0, qword ptr [eax]
+	ret_single:
+		call wrapper_inner
+		fld dword ptr [eax]
+		jmp final
+	ret_double:
+		call wrapper_inner
+		fld qword ptr [eax]
 	final:
 	mov esp, ebp
 	pop ebp

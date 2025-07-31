@@ -31,8 +31,8 @@ static_call_impl:
 		mov %ecx, %ecx
 		jmp .Lret_final
 	.Lret_float:
-		mov 0x18(%ebp), %ecx 
-		movsd %xmm0, (%ecx)
+		mov 0x18(%ebp), %ecx
+		fstl (%ecx)
 		mov %ecx, %ecx
 	.Lret_final:
 	mov    %ebp,%esp
@@ -65,13 +65,17 @@ wrapper_call_impl:
 	cmpl    $0x5, %ecx
 	je      2f
 	cmpl    $0x6, %ecx
-	je      2f
+	je      3f
 	call   wrapper_inner
-	jmp     3f
-	2: 
+	jmp     4f
+	2:
 	call   wrapper_inner
-	movsd   (%eax), %xmm0
-	3:
+	flds ($eax)
+	jmp 4f
+	3: 
+	call   wrapper_inner
+	fldl ($eax)
+	4:
 	mov    %ebp,%esp
 	pop    %ebp
 	.cfi_def_cfa esp, 4
