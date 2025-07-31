@@ -3,6 +3,7 @@
 .MODEL FLAT, C
 _text SEGMENT
 static_call_impl PROC FAR C EXPORT
+	.SAFESEH static_call_impl
 	push ebp
 	mov ebp, esp
 	; set up stack args
@@ -46,6 +47,7 @@ static_call_impl ENDP
 EXTERN C wrapper_inner : PROC
 
 wrapper_call_impl PROC FAR C EXPORT
+	.SAFESEH wrapper_call_impl
 	push ebp
 	mov ebp, esp
     sub esp, 16
