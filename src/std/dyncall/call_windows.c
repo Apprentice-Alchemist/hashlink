@@ -14,14 +14,19 @@ enum { FPU_CALL_REGS = 4 };
 #elif defined(_M_ARM64)
 enum { CPU_CALL_REGS = 8 };
 enum { FPU_CALL_REGS = 8 };
-#elif defined(_M_X86)
+#elif defined(_M_IX86)
 enum { CPU_CALL_REGS = 0 };
 enum { FPU_CALL_REGS = 0 };
 #endif
 
 struct regs {
+#ifndef _M_IX86
     size_t cpu[CPU_CALL_REGS];
     double fpu[FPU_CALL_REGS];
+#else
+    size_t cpu[1];
+    double fpu[1];
+#endif
 };
 
 enum ret_flags {

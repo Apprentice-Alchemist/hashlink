@@ -51,6 +51,7 @@ wrapper_call_impl:
 	mov    %esp,%ebp
 	.cfi_def_cfa_register ebp
 	sub $0x10, %esp
+	push %esp
 	lea 0x8(%ebp), %eax
 	push %eax
 	xor %eax, %eax

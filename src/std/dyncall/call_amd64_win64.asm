@@ -10,8 +10,8 @@ static_call_impl PROC FRAME
 	mov rax, rdx
 	mov r11, r8
 	COMMENT # mov [rbp + 16], rcx #
-	mov [rbp + 24], rdx
-	mov [rbp + 32], r8
+	COMMENT # mov [rbp + 24], rdx #
+	COMMENT # mov [rbp + 32], r8 #
 	mov [rbp + 40], r9
 	COMMENT # set up call regs #
 	mov rcx, [rax]
@@ -24,7 +24,7 @@ static_call_impl PROC FRAME
 	movsd xmm2, qword ptr [rax + 48]
 	movsd xmm3, qword ptr [rax + 56]
 	COMMENT # set up stack args #
-	@@:  cmp rax, qword ptr [rbp + 32]
+	@@:  cmp rax, r11
 		jz @F
 		sub rax, 8
 		push [rax]
