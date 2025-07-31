@@ -134,7 +134,9 @@ HL_PRIM void hl_setup_callbacks2( void *c, void *w, int flags ) {
 // #ifndef HAVE_FFI
  	//hlc_static_call = (fptr_static_call)c;
  	//hlc_get_wrapper = (fptr_get_wrapper)w;
+	#ifdef HL_WIN
  	hlc_call_flags = flags;
+	#endif
 // #endif
 }
 
