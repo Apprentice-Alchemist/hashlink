@@ -57,7 +57,7 @@ enum ret_flags {
 void *static_call_impl(void *fn_ptr, void *stack_begin, void *stack_end,
                        int ret_flags, void *ret_ptr);
 
-void *hlc_static_call(void *fun, hl_type *ty, void **args, vdynamic *out) {
+void *hlc_static_call(void **fun, hl_type *ty, void **args, vdynamic *out) {
   size_t stack_count = 0;
   {
 #if defined(_MSC_VER) && defined(_M_X64)
@@ -219,7 +219,7 @@ int nreg = 0;
     break;
   }
 
-  return static_call_impl(fun, data + stack_count, data, ret_flags, &out->v);
+  return static_call_impl(*fun, data + stack_count, data, ret_flags, &out->v);
 }
 
 void *wrapper_inner(vclosure_wrapper *c, struct regs *regs, size_t *stack,
