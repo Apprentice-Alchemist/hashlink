@@ -6,8 +6,8 @@ static_call_impl PROC FAR C EXPORT
 	push ebp
 	mov ebp, esp
 	; set up stack args
-    mov eax, [ebp + 16]
-    mov edx, [ebp + 12]
+    mov eax, [ebp + 12]
+    mov edx, [ebp + 16]
 	stack_copy:  cmp eax, edx
 		jz fcall
 		sub eax, 4

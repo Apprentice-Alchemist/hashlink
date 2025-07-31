@@ -7,10 +7,10 @@ static_call_impl:
 	.cfi_offset ebp, -8
 	mov    %esp,%ebp
 	.cfi_def_cfa_register ebp
-	mov 0x10(%ebp), %eax
-	2:  cmp    0xc(%ebp), %eax
+	mov 0xc(%ebp), %eax
+	2:  cmp    0x10(%ebp), %eax
 		je     3f
-		sub    $0x8,%eax
+		sub    $0x4,%eax
 		push   (%eax)
 		jmp    2b
 	3: call *0x8(%ebp)
@@ -70,11 +70,11 @@ wrapper_call_impl:
 	jmp     4f
 	2:
 	call   wrapper_inner
-	flds ($eax)
+	flds (%eax)
 	jmp 4f
 	3: 
 	call   wrapper_inner
-	fldl ($eax)
+	fldl (%eax)
 	4:
 	mov    %ebp,%esp
 	pop    %ebp
