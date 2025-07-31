@@ -1,4 +1,8 @@
+#ifdef _MSC_VER
+#define alloca _alloca
+#else
 #include <alloca.h>
+#endif
 #include <assert.h>
 #include <hl.h>
 #include <stdint.h>
