@@ -125,8 +125,8 @@ HL_PRIM bool hl_fun_compare( vdynamic *a, vdynamic *b ) {
  //static fptr_get_wrapper hlc_get_wrapper = NULL;
 // #endif
 
-void *hlc_static_call(void *fun, hl_type *t, void **args, vdynamic *out);
-void *hlc_get_wrapper(hl_type *t);
+void *hl_static_call(void *fun, hl_type *t, void **args, vdynamic *out);
+void *hl_get_wrapper(hl_type *t);
 
 static int hlc_call_flags = 0;
 
@@ -206,7 +206,7 @@ HL_PRIM vdynamic* hl_call_method( vdynamic *c, varray *args ) {
 		}
 		pargs[i] = p;
 	}
-	ret = hlc_static_call(hlc_call_flags & 1 ? &cl->fun : cl->fun,cl->t,pargs,&out);
+	ret = hl_static_call(hlc_call_flags & 1 ? &cl->fun : cl->fun,cl->t,pargs,&out);
 	tret = cl->t->fun->ret;
 	if( !hl_is_ptr(tret) ) {
 		vdynamic *r;
@@ -314,7 +314,7 @@ HL_PRIM void *hl_wrapper_call( void *_c, void **args, vdynamic *ret ) {
 			vargs[p++] = v;
 		}
 	}
-	pret = hlc_static_call(hlc_call_flags & 1 ? &w->fun : w->fun,w->hasValue ? w->t->fun->parent : w->t,vargs,ret);
+	pret = hl_static_call(hlc_call_flags & 1 ? &w->fun : w->fun,w->hasValue ? w->t->fun->parent : w->t,vargs,ret);
 	aret = hl_is_ptr(w->t->fun->ret) ? &pret : pret;
 	if( aret == NULL ) aret = &pret;
 	switch( tfun->ret->kind ) {
@@ -354,7 +354,7 @@ HL_PRIM void *hl_dyn_call_obj( vdynamic *o, hl_type *ft, int hfield, void **args
 			if( tmp ) {
 				vclosure_wrapper w;
 				w.cl.t = ft;
-				w.cl.fun = hlc_get_wrapper(ft);
+				w.cl.fun = hl_get_wrapper(ft);
 				w.cl.hasValue = 2;
 #				ifdef HL_64
 				w.cl.stackCount = 0;
@@ -377,7 +377,7 @@ HL_PRIM void *hl_dyn_call_obj( vdynamic *o, hl_type *ft, int hfield, void **args
 					vclosure_wrapper w;
 					vclosure tmp;
 					w.cl.t = ft;
-					w.cl.fun = hlc_get_wrapper(ft);
+					w.cl.fun = hl_get_wrapper(ft);
 					w.cl.hasValue = 2;
 #					ifdef HL_64
 					w.cl.stackCount = 0;
@@ -415,7 +415,7 @@ HL_PRIM void *hl_dyn_call_obj( vdynamic *o, hl_type *ft, int hfield, void **args
 
 HL_PRIM vclosure *hl_make_fun_wrapper( vclosure *v, hl_type *to ) {
 	vclosure_wrapper *c;
-	void *wrap = hlc_get_wrapper(to);
+	void *wrap = hl_get_wrapper(to);
 	if( wrap == NULL ) return NULL;
 	if( v->fun != fun_var_args && v->t->fun->nargs != to->fun->nargs )
 		return NULL;
