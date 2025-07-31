@@ -4,6 +4,28 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#ifdef _MSC_VER
+#if defined(_M_X64)
+enum { CPU_CALL_REGS = 4 };
+enum { FPU_CALL_REGS = 4 };
+#elif defined(_M_ARM64)
+enum { CPU_CALL_REGS = 8 };
+enum { FPU_CALL_REGS = 8 };
+#elif defined(_M_IX86)
+enum { CPU_CALL_REGS = 0 };
+enum { FPU_CALL_REGS = 0 };
+#endif
+
+struct regs {
+#ifndef _M_IX86
+  size_t cpu[CPU_CALL_REGS];
+  double fpu[FPU_CALL_REGS];
+#else
+  size_t cpu[1];
+  double fpu[1];
+#endif
+};
+#else
 #ifdef __x86_64__
 enum { CPU_CALL_REGS = 6 };
 enum { FPU_CALL_REGS = 8 };
@@ -19,6 +41,7 @@ struct regs {
   size_t cpu[CPU_CALL_REGS];
   double fpu[FPU_CALL_REGS];
 };
+#endif
 
 enum ret_flags {
   ret_void = 1,
@@ -33,8 +56,12 @@ void *static_call_impl(void *fn_ptr, void *stack_begin, void *stack_end,
 void *hlc_static_call(void *fun, hl_type *ty, void **args, vdynamic *out) {
   size_t stack_count = 0;
   {
+#if defined(_MSC_VER) && defined(_M_X64)
+    int nreg = 0;
+#else
     int ncpu = 0;
     int nfpu = 0;
+#endif
     for (int i = 0; i < ty->fun->nargs; i++) {
       hl_type *arg_type = ty->fun->args[i];
 
@@ -45,24 +72,51 @@ void *hlc_static_call(void *fun, hl_type *ty, void **args, vdynamic *out) {
       case HI32:
       case HI64:
       case HGUID:
+#if defined(_MSC_VER) && defined(_M_X64)
+        if (nreg < CPU_CALL_REGS) {
+          nreg++;
+        } else {
+          stack_count++;
+        }
+#else
         if (ncpu < CPU_CALL_REGS) {
           ncpu++;
         } else {
           stack_count++;
         }
+#endif
+        break;
       case HF32:
       case HF64:
+#if defined(_MSC_VER) && defined(_M_X64)
+        if (nreg < FPU_CALL_REGS) {
+          nreg++;
+        } else {
+          stack_count++;
+        }
+#else
         if (nfpu < FPU_CALL_REGS) {
           nfpu++;
         } else {
           stack_count++;
         }
+#endif
+        break;
       default:
+#if defined(_MSC_VER) && defined(_M_X64)
+        if (nreg < CPU_CALL_REGS) {
+          nreg++;
+        } else {
+          stack_count++;
+        }
+#else
         if (ncpu < CPU_CALL_REGS) {
           ncpu++;
         } else {
           stack_count++;
         }
+#endif
+        break;
       }
     }
   }
@@ -74,8 +128,12 @@ void *hlc_static_call(void *fun, hl_type *ty, void **args, vdynamic *out) {
   size_t *data = alloca(alloc_size);
   memset(data, 0, alloc_size);
   struct regs regs = {0};
+#if defined(_MSC_VER) && defined(_M_X64)
+int nreg = 0;
+#else
   int ncpu = 0;
   int nfpu = 0;
+#endif
   int nstack = 0;
   for (int i = 0; i < ty->fun->nargs; i++) {
     hl_type *arg_type = ty->fun->args[i];
@@ -87,26 +145,50 @@ void *hlc_static_call(void *fun, hl_type *ty, void **args, vdynamic *out) {
     case HI32:
     case HI64:
     case HGUID:
+#if defined(_MSC_VER) && defined(_M_X64)
+      if (nreg < CPU_CALL_REGS) {
+        regs.cpu[nreg++] = *(size_t *)args[i];
+      } else {
+        data[nstack++] = *(size_t *)args[i];
+      }
+#else
       if (ncpu < CPU_CALL_REGS) {
         regs.cpu[ncpu++] = *(size_t *)args[i];
       } else {
         data[nstack++] = *(size_t *)args[i];
       }
+#endif
       break;
     case HF32:
     case HF64:
+#if defined(_MSC_VER) && defined(_M_X64)
+      if (nreg < FPU_CALL_REGS) {
+        regs.fpu[nreg++] = *(double *)args[i];
+      } else {
+        data[nstack++] = *(size_t *)args[i];
+      }
+#else
       if (nfpu < FPU_CALL_REGS) {
         regs.fpu[nfpu++] = *(double *)args[i];
       } else {
         data[nstack++] = *(size_t *)args[i];
       }
+#endif
       break;
     default:
+#if defined(_MSC_VER) && defined(_M_X64)
+      if (nreg < CPU_CALL_REGS) {
+        regs.cpu[nreg++] = (size_t)args[i];
+      } else {
+        data[nstack++] = (size_t)args[i];
+      }
+#else
       if (nfpu < CPU_CALL_REGS) {
         regs.cpu[ncpu++] = (size_t)args[i];
       } else {
         data[nstack++] = (size_t)args[i];
       }
+#endif
       break;
     }
   }
@@ -140,6 +222,41 @@ void *wrapper_inner(vclosure_wrapper *c, struct regs *regs, size_t *stack,
                     vdynamic *ret) {
   hl_type_fun *fun = c->cl.t->fun;
   void **args = alloca(fun->nargs * sizeof(void *));
+#if defined(_MSC_VER) && defined(_M_X64)
+  int nregs = CPU_CALL_REGS == 0 ? 0 : 1;
+  int nstack = CPU_CALL_REGS == 0 ? 1 : 0;
+  for (int i = 0; i < fun->nargs; i++) {
+    if (hl_is_dynamic(fun->args[i])) {
+      if (nregs < CPU_CALL_REGS) {
+        args[i] = (void *)regs->cpu[nregs++];
+      } else {
+        args[i] = (void *)stack[nstack++];
+#ifndef HL_64
+        if (fun->args[i]->kind == HI64) {
+          nstack++;
+        }
+#endif
+      }
+    } else if (fun->args[i]->kind == HF32 || fun->args[i]->kind == HF64) {
+      if (nregs < FPU_CALL_REGS) {
+        args[i] = &regs->fpu[nregs++];
+      } else {
+        args[i] = (double *)&stack[nstack++];
+#ifndef HL_64
+        if (fun->args[i]->kind == HF64) {
+          nstack++;
+        }
+#endif
+      }
+    } else {
+      if (nregs < CPU_CALL_REGS) {
+        args[i] = &regs->cpu[nregs++];
+      } else {
+        args[i] = &stack[nstack++];
+      }
+    }
+  }
+#else
   int ncpu = CPU_CALL_REGS == 0 ? 0 : 1;
   int nfpu = 0;
   int nstack = CPU_CALL_REGS == 0 ? 1 : 0;
@@ -174,7 +291,7 @@ void *wrapper_inner(vclosure_wrapper *c, struct regs *regs, size_t *stack,
       }
     }
   }
-
+#endif
   switch (fun->ret->kind) {
   case HBOOL:
   case HUI8:
