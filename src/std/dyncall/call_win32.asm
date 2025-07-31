@@ -35,7 +35,7 @@ static_call_impl PROC FAR C EXPORT
 		jmp ret_final
 	ret_float:
 		mov eax, [ebp + 24]
-		fld qword ptr [eax]
+		fst qword ptr [eax]
 		jmp ret_final
 	ret_final:
 	mov esp, ebp
