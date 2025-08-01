@@ -14,26 +14,43 @@ static_call_impl:
 		push   (%eax)
 		jmp    2b
 	3: call *0x8(%ebp)
-	cmpl $0x1, 0x14(%Ebp)
+	mov 0x14(%ebp), %ecx
+	cmpl $0x1, %ecx
 	je .Lret_void
-	cmpl $0x2, 0x14(%Ebp)
+	cmpl $0x2, %ecx
 	je .Lret_int
-	cmpl $0x3, 0x14(%Ebp)
+	cmpl $0x3, %ecx
 	je .Lret_float
-	cmpl $0x4, 0x14(%Ebp)
-	je .Lret_final
+	cmpl $0x4, %ecx
+	je .Lret_double
+	cmpl $0x5, %ecx
+	je .Lret_ptr
+	cmpl $0x6, %ecx
+	je .Lret_int64
 	.Lret_void:
 		xor %eax, %eax
 		jmp .Lret_final
 	.Lret_int:
 		mov 0x18(%ebp), %ecx 
 		mov %eax, (%ecx)
-		mov %ecx, %ecx
+		mov %ecx, %eax
 		jmp .Lret_final
 	.Lret_float:
 		mov 0x18(%ebp), %ecx
+		fsts (%ecx)
+		mov %ecx, %eax
+		jmp .Lret_final
+	.Lret_double:
+		mov 0x18(%ebp), %ecx
 		fstl (%ecx)
 		mov %ecx, %ecx
+		jmp .Lret_final
+	.Lret_int64:
+		mov 0x18(%ebp), %ecx 
+		mov %eax, (%ecx)
+		mov %edx, 0x4(%ecx)
+		mov %ecx, %eax
+	.Lret_ptr:
 	.Lret_final:
 	mov    %ebp,%esp
 	pop    %ebp
@@ -66,14 +83,14 @@ wrapper_call_impl:
 	je      2f
 	cmpl    $0x6, %ecx
 	je      3f
-	call   wrapper_inner
+	call   wrapper_inner@plt
 	jmp     4f
 	2:
-	call   wrapper_inner
+	call   wrapper_inner@plt
 	flds (%eax)
 	jmp 4f
 	3: 
-	call   wrapper_inner
+	call   wrapper_inner@plt
 	fldl (%eax)
 	4:
 	mov    %ebp,%esp

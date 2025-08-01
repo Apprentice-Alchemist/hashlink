@@ -23,7 +23,11 @@ static_call_impl PROC FAR C EXPORT
 	cmp ecx, 3
 	je ret_float
 	cmp ecx, 4
+	je ret_double
+	cmp ecx, 5
 	je ret_final
+	cmp ecx, 6
+	je ret_int64
 	ud2
 	ret_void:
 		xor eax, eax
@@ -35,8 +39,17 @@ static_call_impl PROC FAR C EXPORT
 		jmp ret_final
 	ret_float:
 		mov eax, [ebp + 24]
+		fst dword ptr [eax]
+		jmp ret_final
+	ret_double:
+		mov eax, [ebp + 24]
 		fst qword ptr [eax]
 		jmp ret_final
+	ret_int64:
+		mov ecx, [ebp + 24]
+		mov [ecx], eax
+		mov [ecx + 4], edx
+		mov eax, ecx
 	ret_final:
 	mov esp, ebp
 	pop ebp

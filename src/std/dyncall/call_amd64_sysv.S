@@ -46,14 +46,24 @@ static_call_impl:
 	3: call   *%r10
 	mov    -0x8(%rbp),%r10
 	mov    -0x10(%rbp),%r11
+	# void
 	cmpl $0x1, %r10d
 	je 4f
+	# int
 	cmpl $0x2, %r10d
 	je 5f
+	# float
 	cmpl $0x3, %r10d
 	je 6f
+	# double
 	cmpl $0x4, %r10d
 	je 7f
+	# ptr
+	cmpl $0x5, %r10d
+	je 8f
+	# int64
+	cmpl $0x6, %r10d
+	je 5f
 	4:
 		xor %rax, %rax
 		jmp 7f
@@ -62,9 +72,12 @@ static_call_impl:
 		mov %r11, %rax
 		jmp 7f
 	6:
-		movsd %xmm0, (%r11)
+		movss %xmm0, (%r11)
 		mov %r11, %rax
 	7:
+		movsd %xmm0, (%r11)
+		mov %r11, %rax
+	8:
 	movq    %rbp,%rsp
 	popq    %rbp
 	.cfi_def_cfa rsp, 8

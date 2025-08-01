@@ -51,10 +51,12 @@ enum ret_flags {
   ret_void = 1,
   ret_int = 2,
   ret_float = 3,
-  ret_ptr = 4,
+  ret_double = 4,
+  ret_ptr = 5,
+  ret_int64 = 6,
 };
 
-void *static_call_impl(void *fn_ptr, void *stack_begin, void *stack_end,
+void *static_call_impl(void *fn_ptr, void *stack_top, void *stack_bottom,
                        int ret_flags, void *ret_ptr);
 
 void *hl_static_call(void **fun, hl_type *ty, void **args, vdynamic *out) {
@@ -206,13 +208,17 @@ int nreg = 0;
   case HUI8:
   case HUI16:
   case HI32:
-  case HI64:
-  case HGUID:
     ret_flags = ret_int;
     break;
   case HF32:
-  case HF64:
     ret_flags = ret_float;
+    break;
+  case HF64:
+    ret_flags = ret_double;
+    break;
+  case HI64:
+  case HGUID:
+    ret_flags = ret_int64;
     break;
   default:
     ret_flags = ret_ptr;

@@ -5,52 +5,62 @@ static_call_impl PROC FRAME
 	mov rbp, rsp
 	.SETFRAME rbp, 0
 	.ENDPROLOG
-	COMMENT # Move function ptr, stack begin and stack end #
+	; Move function ptr, stack begin and stack end
 	mov r10, rcx
 	mov rax, rdx
 	mov r11, r8
-	COMMENT # mov [rbp + 16], rcx #
-	COMMENT # mov [rbp + 24], rdx #
-	COMMENT # mov [rbp + 32], r8 #
+	; mov [rbp + 16], rcx
+	; mov [rbp + 24], rdx
+	; mov [rbp + 32], r8
 	mov [rbp + 40], r9
-	COMMENT # set up call regs #
+	; set up call regs
 	mov rcx, [rax]
 	mov rdx, [rax + 8]
 	mov r8, [rax + 16]
 	mov r9, [rax + 24]
-	COMMENT # set up fpu call regs #
+	; set up fpu call regs
 	movsd xmm0, qword ptr [rax + 32]
 	movsd xmm1, qword ptr [rax + 40]
 	movsd xmm2, qword ptr [rax + 48]
 	movsd xmm3, qword ptr [rax + 56]
-	COMMENT # set up stack args #
+	; set up stack args
 	@@:  cmp rax, r11
 		jz @F
 		sub rax, 8
 		push [rax]
 		jmp @B
-	COMMENT # set up home area for rcx, rdx, r8 and r9 #
+	; set up home area for rcx, rdx, r8 and r9
 	@@:
 	sub rsp, 32
 	call r10
-	cmp byte ptr [rbp + 40], 1
+	mov r10, [rbp + 40]
+	cmp r10, 1
 	je ret_void
-	cmp byte ptr [rbp + 40], 2
+	cmp r10, 2
 	je ret_int
-	cmp byte ptr [rbp + 40], 3
+	cmp r10, 3
 	je ret_float
-	cmp byte ptr [rbp + 40], 4
+	cmp r10, 4
+	je ret_double
+	cmp r10, 5
 	je ret_final
+	cmp r10, 6
+	je ret_int64
 	ud2
 	ret_void:
 		xor rax, rax
 		jmp ret_final
 	ret_int:
+	ret_int64:
 		mov r11, [rbp + 48]
 		mov [r11], rax
 		mov rax, r11
 		jmp ret_final
 	ret_float:
+		mov rax, [rbp + 48]
+		movss dword ptr [rax], xmm0
+		jmp ret_final
+	ret_double:
 		mov rax, [rbp + 48]
 		movsd qword ptr [rax], xmm0
 		jmp ret_final
