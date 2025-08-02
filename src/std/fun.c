@@ -236,23 +236,34 @@ HL_PRIM vdynamic *hl_dyn_call( vclosure *c, vdynamic **args, int nargs ) {
 		vdynamic *args[HL_MAX_ARGS+1];
 	} tmp;
 	vclosure ctmp;
+	varray *arr = &tmp.a;
 	int i = 0;
-	if( nargs > HL_MAX_ARGS ) hl_error("Too many arguments");
-	tmp.a.t = &hlt_array;
-	tmp.a.at = &hlt_dyn;
-	tmp.a.size = nargs;
+
 	if( c->hasValue && c->t->fun->nargs >= 0 && c->t->fun->parent != NULL ) {
+		if( nargs > HL_MAX_ARGS ) {
+			arr = hl_alloc_array(&hlt_dyn, nargs + 1);
+		} else {
+			tmp.a.t = &hlt_array;
+			tmp.a.at = &hlt_dyn;
+			tmp.a.size = nargs + 1;
+		}
 		ctmp.t = c->t->fun->parent;
 		ctmp.hasValue = 0;
 		ctmp.fun = c->fun;
-		tmp.args[0] = hl_make_dyn(&c->value,ctmp.t->fun->args[0]);
-		tmp.a.size++;
+		hl_aptr(arr, vdynamic*)[0] = hl_make_dyn(&c->value,ctmp.t->fun->args[0]);
 		for(i=0;i<nargs;i++)
-			tmp.args[i+1] = args[i];
+			hl_aptr(arr, vdynamic*)[i+1] = args[i];
 		c = &ctmp;
 	} else {
+		if( nargs > HL_MAX_ARGS ) {
+			arr = hl_alloc_array(&hlt_dyn, nargs);
+		} else {
+			tmp.a.t = &hlt_array;
+			tmp.a.at = &hlt_dyn;
+			tmp.a.size = nargs;
+		}
 		for(i=0;i<nargs;i++)
-			tmp.args[i] = args[i];
+			hl_aptr(arr, vdynamic*)[i] = args[i];
 	}
 	return hl_call_method((vdynamic*)c,&tmp.a);
 }
