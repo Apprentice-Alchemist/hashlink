@@ -37,30 +37,23 @@ if(WIN32)
             ${INCLUDES_BASE_DIR}/libuv/src/win/winapi.c
             ${INCLUDES_BASE_DIR}/libuv/src/win/winsock.c
     )
-elseif(ANDROID)
-	ExternalProject_Add(libuv-project
+elseif(DOWNLOAD_DEPENDENCIES)
+	FetchContent_Declare(libuv-project
         URL https://github.com/libuv/libuv/archive/refs/tags/v1.51.0.tar.gz
         URL_HASH SHA256=27e55cf7083913bfb6826ca78cde9de7647cded648d35f24163f2d31bb9f51cd
-        CMAKE_ARGS
-            -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
-            -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-            -DANDROID_PLATFORM=${ANDROID_PLATFORM}
-            -DANDROID_ABI=${CMAKE_ANDROID_ARCH_ABI}
-            -DLIBUV_BUILD_SHARED=OFF
-            -DLIBUV_BUILD_TESTS=OFF
-        # INSTALL_BYPRODUCTS in CMake 3.26+
-        BUILD_BYPRODUCTS <INSTALL_DIR>/${CMAKE_INSTALL_LIBDIR}/libuv.a
         DOWNLOAD_EXTRACT_TIMESTAMP true
+        EXCLUDE_FROM_ALL
     )
-    ExternalProject_Get_Property(libuv-project INSTALL_DIR)
+    set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS OFF)
+    set(LIBUV_BUILD_SHARED OFF CACHE INTERNAL "")
+    set(LIBUV_BUILD_TESTS OFF CACHE INTERNAL "")
+    FetchContent_MakeAvailable(libuv-project)
+    set(BUILD_SHARED_LIBS _OLD_BUILD_SHARED_LIBS)
+    set(MBEDTLS_LIBRARIES MbedTLS::mbedtls MbedTLS::mbedx509 MbedTLS::mbedcrypto)
 
-    add_library(libuv STATIC IMPORTED)
-    set_target_properties(libuv PROPERTIES IMPORTED_LOCATION ${INSTALL_DIR}/${CMAKE_INSTALL_LIBDIR}/libuv.a)
-
-    set(LibUV_INCLUDE_DIRS ${INSTALL_DIR}/${CMAKE_INSTALL_INCLUDEDIR})
-    set(LibUV_LIBRARIES libuv)
-
-    add_dependencies(libuv libuv-project)
+    set(LibUV_INCLUDE_DIRS "")
+    set(LibUV_LIBRARIES libuv::libuv)
 else()
     find_package(LibUV)
 endif()

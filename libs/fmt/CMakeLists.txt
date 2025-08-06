@@ -29,7 +29,7 @@ if (WIN32)
         ${INCLUDES_BASE_DIR}/png/pngwutil.c)
 endif()
 
-if (WIN32 OR ANDROID)
+if (WIN32)
     set(VORBIS_INCLUDE_DIR ${INCLUDES_BASE_DIR}/vorbis)
 
     target_sources(fmt.hdll PRIVATE
@@ -133,18 +133,16 @@ if(WIN32)
         ${INCLUDES_BASE_DIR}/zlib/trees.c
         ${INCLUDES_BASE_DIR}/zlib/zutil.c
     )
-elseif(ANDROID)
+elseif(DOWNLOAD_DEPENDENCIES)
     find_package(ZLIB REQUIRED)
 
 	ExternalProject_Add(turbojpeg-project
         URL https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.1/libjpeg-turbo-3.1.1.tar.gz
         URL_HASH SHA256=aadc97ea91f6ef078b0ae3a62bba69e008d9a7db19b34e4ac973b19b71b4217c
         CMAKE_ARGS
-            -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
-            -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-            -DANDROID_PLATFORM=${ANDROID_PLATFORM}
-            -DANDROID_ABI=${CMAKE_ANDROID_ARCH_ABI}
+            ${CMAKE_COMMON_DEP_ARGS}
             -DBUILD_SHARED_LIBS=OFF
+            -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}
         # INSTALL_BYPRODUCTS in CMake 3.26+
         BUILD_BYPRODUCTS <INSTALL_DIR>/${CMAKE_INSTALL_LIBDIR}/libturbojpeg.a
         DOWNLOAD_EXTRACT_TIMESTAMP true
@@ -164,13 +162,11 @@ elseif(ANDROID)
         URL https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.50.tar.gz
         URL_HASH SHA256=71158e53cfdf2877bc99bcab33641d78df3f48e6e0daad030afe9cb8c031aa46
         CMAKE_ARGS
-            -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
-            -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-            -DANDROID_PLATFORM=${ANDROID_PLATFORM}
-            -DANDROID_ABI=${CMAKE_ANDROID_ARCH_ABI}
+            ${CMAKE_COMMON_DEP_ARGS}
             -DPNG_SHARED=OFF
             -DPNG_TESTS=OFF
             -DPNG_TOOLS=OFF
+            -DPNG_FRAMEWORK=OFF
         # INSTALL_BYPRODUCTS in CMake 3.26+
         BUILD_BYPRODUCTS <INSTALL_DIR>/${CMAKE_INSTALL_LIBDIR}/libpng.a
         DOWNLOAD_EXTRACT_TIMESTAMP true
@@ -184,6 +180,54 @@ elseif(ANDROID)
     set(PNG_LIBRARIES png)
 
     add_dependencies(png libpng)
+
+    ExternalProject_Add(libogg
+        URL https://github.com/xiph/ogg/releases/download/v1.3.6/libogg-1.3.6.tar.gz
+        URL_HASH SHA256=83e6704730683d004d20e21b8f7f55dcb3383cdf84c0daedf30bde175f774638
+        CMAKE_ARGS
+            ${CMAKE_COMMON_DEP_ARGS}
+        # INSTALL_BYPRODUCTS in CMake 3.26+
+        BUILD_BYPRODUCTS <INSTALL_DIR>/${CMAKE_INSTALL_LIBDIR}/libogg.a
+        DOWNLOAD_EXTRACT_TIMESTAMP true
+    )
+    ExternalProject_Get_Property(libogg INSTALL_DIR)
+    set(OGG_INSTALL_DIR ${INSTALL_DIR})
+
+    set(OGG_LIBRARY ${OGG_INSTALL_DIR}/${CMAKE_INSTALL_LIBDIR}/libogg.a)
+    set(OGG_INCLUDE_DIR ${OGG_INSTALL_DIR}/${CMAKE_INSTALL_INCLUDEDIR})
+
+    ExternalProject_Add(libvorbis
+        URL https://github.com/xiph/vorbis/releases/download/v1.3.7/libvorbis-1.3.7.tar.xz
+        URL_HASH SHA256=b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b
+        CMAKE_ARGS
+            ${CMAKE_COMMON_DEP_ARGS}
+            -DOGG_LIBRARY=${OGG_LIBRARY}
+            -DOGG_INCLUDE_DIR=${OGG_INCLUDE_DIR}
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 # https://github.com/xiph/vorbis/issues/113
+        # INSTALL_BYPRODUCTS in CMake 3.26+
+        BUILD_BYPRODUCTS
+            <INSTALL_DIR>/${CMAKE_INSTALL_LIBDIR}/libvorbis.a
+            <INSTALL_DIR>/${CMAKE_INSTALL_LIBDIR}/libvorbisfile.a
+        DOWNLOAD_EXTRACT_TIMESTAMP true
+    )
+    add_dependencies(libvorbis libogg)
+    ExternalProject_Get_Property(libvorbis INSTALL_DIR)
+    set(VORBIS_INSTALL_DIR ${INSTALL_DIR})
+
+    add_library(ogg STATIC IMPORTED)
+    set_target_properties(ogg PROPERTIES IMPORTED_LOCATION ${OGG_LIBRARY})
+
+    add_library(vorbis STATIC IMPORTED)
+    set_target_properties(vorbis PROPERTIES IMPORTED_LOCATION ${VORBIS_INSTALL_DIR}/${CMAKE_INSTALL_LIBDIR}/libvorbis.a)
+    add_library(vorbisfile STATIC IMPORTED)
+    set_target_properties(vorbisfile PROPERTIES IMPORTED_LOCATION ${VORBIS_INSTALL_DIR}/${CMAKE_INSTALL_LIBDIR}/libvorbisfile.a)
+
+    set(VORBIS_INCLUDE_DIR ${VORBIS_INSTALL_DIR}/${CMAKE_INSTALL_INCLUDEDIR} ${OGG_INCLUDE_DIR})
+    set(OGGVORBIS_LIBRARIES vorbis ogg vorbisfile)
+
+    add_dependencies(vorbisfile libvorbis)
+    add_dependencies(vorbis libvorbis)
+    add_dependencies(ogg libogg)
 else()
     find_package(ZLIB REQUIRED)
     find_package(PNG REQUIRED)
