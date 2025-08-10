@@ -17,7 +17,7 @@ include(FindPkgConfig)
 include(CTest)
 
 set(WITH_VM_DEFAULT ON)
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64" AND (NOT CMAKE_OSX_ARCHITECTURES MATCHES "x86_64"))
     set(WITH_VM_DEFAULT OFF)
 endif()
 
@@ -34,6 +34,16 @@ else()
 endif()
 option(DOWNLOAD_DEPENDENCIES "Download & build third-party dependencies" ${_DOWNLOAD_DEPENDENCIES})
 
+if(MSVC)
+    if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+        set (CMAKE_INSTALL_PREFIX "C:/HaxeToolkit/hashlink" CACHE PATH "default install path" FORCE)
+    endif()
+endif()
+option(FLAT_INSTALL_TREE "Flat install tree" ${MSVC})
+if(FLAT_INSTALL_TREE)
+    set(CMAKE_INSTALL_BINDIR .)
+    set(CMAKE_INSTALL_LIBDIR .)
+endif()
 # force Unicode over Multi-byte
 if(MSVC)
     add_definitions(-DUNICODE -D_UNICODE)
@@ -401,15 +411,6 @@ endif()
 
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
-
-if(MSVC)
-    if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-        set (CMAKE_INSTALL_PREFIX "C:/HaxeToolkit/hashlink" CACHE PATH "default install path" FORCE)
-    endif()
-
-    set(CMAKE_INSTALL_BINDIR .)
-    set(CMAKE_INSTALL_LIBDIR .)
-endif()
 
 set(HDLL_DESTINATION
     ${CMAKE_INSTALL_LIBDIR}
