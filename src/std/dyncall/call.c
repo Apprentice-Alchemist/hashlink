@@ -93,7 +93,10 @@ static size_t compute_stack_offset(call_frame_layout *layout, size_t arg_size,
                                    size_t arg_align) {
   assert(arg_align <= sizeof(size_t));
   assert(sizeof(size_t) % arg_align == 0);
-#if defined(__APPLE__) && defined(__aarch64__)
+#if !(defined(__APPLE__) && defined(__aarch64__))
+  if (arg_align < sizeof(size_t))
+    arg_align = sizeof(size_t);
+#endif
   size_t m = layout->stack_size % arg_align;
   if (m > 0) {
     layout->stack_size += (arg_align - m);
@@ -101,102 +104,58 @@ static size_t compute_stack_offset(call_frame_layout *layout, size_t arg_size,
   size_t offset = layout->stack_size;
   layout->stack_size += arg_size;
   return offset;
-#else
-  size_t m = arg_size % sizeof(size_t);
-  if (m > 0) {
-    arg_size += (arg_size - m);
-  }
-  size_t offset = layout->stack_size;
-  layout->stack_size += arg_size;
-  return offset;
-#endif
 }
 
-static struct arg_pos push_type(call_frame_layout *layout, hl_type *t) {
-  enum arg_kind kind;
-  union arg_loc loc;
+static enum arg_kind select_reg(call_frame_layout *layout, hl_type *t,
+                                union arg_loc *loc) {
   switch (t->kind) {
-  case HBOOL:
-  case HUI8:
-  case HUI16:
-  case HI32:
-  case HI64:
-  case HGUID:
-#if defined(_MSC_VER) && defined(_M_X64)
-    if (layout->nreg < CPU_CALL_REGS) {
-      kind = arg_kind_rcpu;
-      loc.rcpu = layout->nreg++;
-    } else {
-      size_t arg_size = hl_type_size(t);
-      size_t arg_align = arg_size;
-      kind = arg_kind_stack;
-      loc.stack_size = arg_size;
-      loc.stack_offset = compute_stack_offset(layout, arg_size, arg_align);
-    }
-#else
-    if (layout->ncpu < CPU_CALL_REGS) {
-      kind = arg_kind_rcpu;
-      loc.rcpu = layout->ncpu++;
-    } else {
-      size_t arg_size = hl_type_size(t);
-      size_t arg_align = arg_size;
-      kind = arg_kind_stack;
-      loc.stack_size = arg_size;
-      loc.stack_offset = compute_stack_offset(layout, arg_size, arg_align);
-    }
-#endif
-    break;
   case HF32:
   case HF64:
 #if defined(_MSC_VER) && defined(_M_X64)
     if (layout->nreg < FPU_CALL_REGS) {
-      kind = arg_kind_rfpu;
-      loc.rfpu = layout->nreg++;
+      loc->rfpu = layout->nreg++;
+      return arg_kind_rfpu;
     } else {
-      size_t arg_size = hl_type_size(t);
-      size_t arg_align = arg_size;
-      kind = arg_kind_stack;
-      loc.stack_size = arg_size;
-      loc.stack_offset = compute_stack_offset(layout, arg_size, arg_align);
+      return arg_kind_stack;
     }
 #else
     if (layout->nfpu < FPU_CALL_REGS) {
-      kind = arg_kind_rfpu;
-      loc.rfpu = layout->nfpu++;
+      loc->rfpu = layout->nfpu++;
+      return arg_kind_rfpu;
     } else {
-      size_t arg_size = hl_type_size(t);
-      size_t arg_align = arg_size;
-      kind = arg_kind_stack;
-      loc.stack_size = arg_size;
-      loc.stack_offset = compute_stack_offset(layout, arg_size, arg_align);
+      return arg_kind_stack;
     }
 #endif
     break;
   default:
 #if defined(_MSC_VER) && defined(_M_X64)
     if (layout->nreg < CPU_CALL_REGS) {
-      kind = arg_kind_rcpu;
-      loc.rcpu = layout->nreg++;
+      loc->rcpu = layout->nreg++;
+      return arg_kind_rcpu;
     } else {
-      size_t arg_size = hl_type_size(t);
-      size_t arg_align = arg_size;
-      kind = arg_kind_stack;
-      loc.stack_size = arg_size;
-      loc.stack_offset = compute_stack_offset(layout, arg_size, arg_align);
+      return arg_kind_stack;
     }
 #else
-    if (layout->ncpu < CPU_CALL_REGS) {
-      kind = arg_kind_rcpu;
-      loc.rcpu = layout->ncpu++;
+    if (layout->nfpu < FPU_CALL_REGS) {
+      loc->rcpu = layout->ncpu++;
+      return arg_kind_rcpu;
     } else {
-      size_t arg_size = hl_type_size(t);
-      size_t arg_align = arg_size;
-      kind = arg_kind_stack;
-      loc.stack_size = arg_size;
-      loc.stack_offset = compute_stack_offset(layout, arg_size, arg_align);
+      return arg_kind_stack;
     }
 #endif
     break;
+  }
+  return arg_kind_stack;
+}
+
+static struct arg_pos push_type(call_frame_layout *layout, hl_type *t) {
+  union arg_loc loc;
+  enum arg_kind kind = select_reg(layout, t, &loc);
+  if (kind == arg_kind_stack) {
+    size_t arg_size = hl_type_size(t);
+    size_t arg_align = arg_size;
+    loc.stack_size = arg_size;
+    loc.stack_offset = compute_stack_offset(layout, arg_size, arg_align);
   }
   return (struct arg_pos){kind, loc};
 }
