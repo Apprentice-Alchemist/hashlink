@@ -149,15 +149,20 @@ HL_PRIM void hl_setup_callbacks( void *c, void *w ) {
 HL_PRIM vdynamic* hl_call_method( vdynamic *c, varray *args ) {
 	vclosure *cl = (vclosure*)c;
 	vdynamic **vargs = hl_aptr(args,vdynamic*);
-	void *pargs[HL_MAX_ARGS];
+	void *pargs_storage[HL_MAX_ARGS];
+	void **pargs = pargs_storage;
 	void *ret;
-	union { double d; int i; float f; int64 i64; } tmp[HL_MAX_ARGS];
+	union tmp { double d; int i; float f; int64 i64; };
+	union tmp tmp_storage[HL_MAX_ARGS];
+	union tmp *tmp = tmp_storage;
 	hl_type *tret;
 	vdynamic *dret;
 	vdynamic out;
 	int i;
-	if( args->size > HL_MAX_ARGS )
-		hl_error("Too many arguments");
+	if( args->size > HL_MAX_ARGS ) {
+		pargs = hl_gc_alloc_raw(sizeof(void *) * args-> size);
+		tmp = hl_gc_alloc_raw(sizeof(*tmp) * args->size);
+	}
 	if( cl->hasValue ) {
 		if( cl->hasValue == 2 ) {
 			cl = ((vclosure_wrapper*)cl)->wrappedFun;
