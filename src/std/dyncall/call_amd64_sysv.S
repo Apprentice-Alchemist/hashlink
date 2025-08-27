@@ -4,15 +4,23 @@
 // - preserved regs: rbx, rsp, rbp, r12, r13, r14, and r15
 // - scratch regs: rax, rdi, rsi, rdx, rcx, r8, r9, r10, r11
 // - return in rax:
+#ifdef __USER_LABEL_PREFIX__
+#define CONCAT1(a, b) CONCAT2(a, b)
+#define CONCAT2(a, b) a ## b
 
-#ifdef __APPLE__
-.global _static_call_impl
-_static_call_impl:
+#define CSYM(name) CONCAT1(__USER_LABEL_PREFIX__, name)
 #else
-.global static_call_impl
-.type static_call_impl,@function
-static_call_impl:
+#define CSYM(name) name
 #endif
+
+.global CSYM(static_call_impl)
+#ifdef __ELF__
+.type CSYM(static_call_impl),@function
+#endif
+#ifdef __APPLE__
+.private_extern CSYM(static_call_impl)
+#endif
+CSYM(static_call_impl):
 	.cfi_startproc
 	push   %rbp
 	.cfi_adjust_cfa_offset 8
@@ -85,16 +93,15 @@ static_call_impl:
 	retq
 	.cfi_endproc
 
-#ifdef __APPLE__
-#define CSYM(name) _ ##name
-.global _wrapper_call_impl
-_wrapper_call_impl:
-#else
-#define CSYM(name) name
-.global wrapper_call_impl
-.type wrapper_call_impl,@function
-wrapper_call_impl:
+.global CSYM(wrapper_call_impl)
+#ifdef __ELF__
+.type CSYM(wrapper_call_impl),@function
+.hidden CSYM(wrapper_call_impl)
 #endif
+#ifdef __APPLE__
+.private_extern CSYM(wrapper_call_impl)
+#endif
+CSYM(wrapper_call_impl):
 	.cfi_startproc
 	pushq   %rbp
 	.cfi_adjust_cfa_offset 8

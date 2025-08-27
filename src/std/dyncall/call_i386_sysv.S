@@ -1,6 +1,18 @@
-.global static_call_impl
-.type static_call_impl,@function
-static_call_impl:
+#ifdef __USER_LABEL_PREFIX__
+#define CONCAT1(a, b) CONCAT2(a, b)
+#define CONCAT2(a, b) a ## b
+
+#define CSYM(name) CONCAT1(__USER_LABEL_PREFIX__, name)
+#else
+#define CSYM(name) name
+#endif
+
+.global CSYM(static_call_impl)
+#ifdef __ELF__
+.type CSYM(static_call_impl),@function
+.hidden CSYM(static_call_impl)
+#endif
+CSYM(static_call_impl):
 	.cfi_startproc
 	push   %ebp
 	.cfi_adjust_cfa_offset 8
@@ -58,9 +70,12 @@ static_call_impl:
 	ret
 	.cfi_endproc
 
-.global wrapper_call_impl
-.type wrapper_call_impl,@function
-wrapper_call_impl:
+.global CSYM(wrapper_call_impl)
+#ifdef __ELF__
+.type CSYM(wrapper_call_impl),@function
+.hidden CSYM(wrapper_call_impl)
+#endif
+CSYM(wrapper_call_impl):
 	.cfi_startproc
 	push   %ebp
 	.cfi_adjust_cfa_offset 8
@@ -83,14 +98,14 @@ wrapper_call_impl:
 	je      2f
 	cmpl    $0x6, %ecx
 	je      3f
-	call   wrapper_inner@plt
+	call   CSYM(wrapper_inner)@plt
 	jmp     4f
 	2:
-	call   wrapper_inner@plt
+	call   CSYM(wrapper_inner)@plt
 	flds (%eax)
 	jmp 4f
 	3: 
-	call   wrapper_inner@plt
+	call   CSYM(wrapper_inner)@plt
 	fldl (%eax)
 	4:
 	mov    %ebp,%esp
