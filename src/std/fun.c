@@ -276,8 +276,10 @@ HL_PRIM vdynamic *hl_dyn_call( vclosure *c, vdynamic **args, int nargs ) {
 HL_PRIM void *hl_wrapper_call( void *_c, void **args, vdynamic *ret ) {
 	vclosure_wrapper *c = (vclosure_wrapper*)_c;
 	hl_type_fun *tfun = c->cl.t->fun;
-	union { double d; int i; float f; int64 i64; } tmp[HL_MAX_ARGS];
-	void *vargs[HL_MAX_ARGS+1];
+	union tmp_val { double d; int i; float f; int64 i64; } tmp_storage[HL_MAX_ARGS];
+	union tmp_val *tmp = tmp_storage;
+	void *vargs_storage[HL_MAX_ARGS+1];
+	void **vargs = vargs_storage;
 	vdynamic out;
 	vclosure *w = c->wrappedFun;
 	int i;
@@ -298,6 +300,10 @@ HL_PRIM void *hl_wrapper_call( void *_c, void **args, vdynamic *ret ) {
 			vargs[p++] = (vdynamic*)w->value;
 		vargs[p++] = (vdynamic*)a;
 	} else {
+		if(w->t->fun->nargs > HL_MAX_ARGS) {
+			tmp = hl_gc_alloc_raw(sizeof(union tmp_val) * w->t->fun->nargs);
+			vargs = hl_gc_alloc_raw(sizeof(void*) * (w->t->fun->nargs + 1));
+		}
 		if( w->hasValue )
 			vargs[p++] = (vdynamic*)w->value;
 		for(i=0;i<w->t->fun->nargs;i++) {
