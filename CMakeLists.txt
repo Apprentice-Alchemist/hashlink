@@ -460,6 +460,13 @@ if(BUILD_TESTING)
     add_test(NAME uvsample
         COMMAND uvsample 6002
     )
+
+    add_executable(dyncall_test src/std/dyncall/dyncall_test.c)
+    target_link_libraries(dyncall_test libhl)
+
+    add_test(NAME dyncall
+        COMMAND dyncall_test
+    )
 endif()
 
 #####################
