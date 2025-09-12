@@ -136,7 +136,7 @@ static enum arg_kind select_reg(call_frame_layout *layout, hl_type *t,
       return arg_kind_stack;
     }
 #else
-    if (layout->nfpu < FPU_CALL_REGS) {
+    if (layout->ncpu < CPU_CALL_REGS) {
       loc->rcpu = layout->ncpu++;
       return arg_kind_rcpu;
     } else {
@@ -206,19 +206,28 @@ void *hl_static_call(void **fun, hl_type *ty, void **args, vdynamic *out) {
 
   size_t stack_size = layout.stack_size;
   size_t alloc_size = stack_size + sizeof(struct regs);
-  size_t *data = alloca(alloc_size);
+  char *data = alloca(alloc_size);
   memset(data, 0, alloc_size);
   struct regs regs = {0};
   call_frame_layout layout2 = {0};
   for (int i = 0; i < ty->fun->nargs; i++) {
     hl_type *arg_type = ty->fun->args[i];
     struct arg_pos pos = push_type(&layout2, arg_type);
+    if (pos.kind == arg_kind_stack) {
+      assert(pos.loc.stack_offset + pos.loc.stack_size <= layout.stack_size);
+    }
     if (hl_is_ptr(arg_type)) {
-      set_arg(&regs, (char *)data, pos, arg_type, &args[i]);
+      set_arg(&regs, data, pos, arg_type, &args[i]);
     } else {
-      set_arg(&regs, (char *)data, pos, arg_type, args[i]);
+      set_arg(&regs, data, pos, arg_type, args[i]);
     }
   }
+  finish_layout(&layout2);
+
+  assert(layout.ncpu == layout2.ncpu);
+  assert(layout.nfpu == layout2.nfpu);
+  assert(layout.stack_size == layout2.stack_size);
+
   memcpy(data + layout.stack_size, &regs, sizeof(regs));
   enum ret_flags ret_flags;
   switch (ty->fun->ret->kind) {
@@ -246,11 +255,16 @@ void *hl_static_call(void **fun, hl_type *ty, void **args, vdynamic *out) {
     break;
   }
 
+  assert(layout.ncpu == layout2.ncpu);
+  assert(layout.nfpu == layout2.nfpu);
+  assert(layout.stack_size == layout2.stack_size);
+  assert(fun != NULL);
+  assert(*fun != NULL);
   return static_call_impl(*fun, data + layout.stack_size, data, ret_flags,
                           &out->v);
 }
 
-void *wrapper_inner(vclosure_wrapper *c, struct regs *regs, size_t *stack,
+void *wrapper_inner(vclosure_wrapper *c, struct regs *regs, char *stack,
                     vdynamic *ret) {
   hl_type_fun *fun = c->cl.t->fun;
   void **args = alloca(fun->nargs * sizeof(void *));
@@ -260,9 +274,9 @@ void *wrapper_inner(vclosure_wrapper *c, struct regs *regs, size_t *stack,
     hl_type *t = fun->args[i];
     struct arg_pos pos = push_type(&layout, t);
     if (hl_is_ptr(t)) {
-      args[i] = *(void **)get_arg(regs, (char *)stack, pos);
+      args[i] = *(void **)get_arg(regs, stack, pos);
     } else {
-      args[i] = (void *)get_arg(regs, (char *)stack, pos);
+      args[i] = (void *)get_arg(regs, stack, pos);
     }
   }
   switch (fun->ret->kind) {
