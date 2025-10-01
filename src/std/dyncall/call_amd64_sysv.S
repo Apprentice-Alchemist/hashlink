@@ -4,6 +4,11 @@
 // - preserved regs: rbx, rsp, rbp, r12, r13, r14, and r15
 // - scratch regs: rax, rdi, rsi, rdx, rcx, r8, r9, r10, r11
 // - return in rax:
+#ifdef __CET__
+#include <cet.h>
+#else
+#define _CET_ENDBR
+#endif
 #ifdef __USER_LABEL_PREFIX__
 #define CONCAT1(a, b) CONCAT2(a, b)
 #define CONCAT2(a, b) a ## b
@@ -22,6 +27,7 @@
 #endif
 CSYM(static_call_impl):
 	.cfi_startproc
+	_CET_ENDBR
 	push   %rbp
 	.cfi_adjust_cfa_offset 8
 	.cfi_offset rbp, -16
@@ -103,6 +109,7 @@ CSYM(static_call_impl):
 #endif
 CSYM(wrapper_call_impl):
 	.cfi_startproc
+	_CET_ENDBR
 	pushq   %rbp
 	.cfi_adjust_cfa_offset 8
 	.cfi_offset rbp, -16
