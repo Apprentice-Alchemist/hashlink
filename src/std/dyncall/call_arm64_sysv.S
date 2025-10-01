@@ -17,6 +17,13 @@
 #endif
 CSYM(static_call_impl):
 	.cfi_startproc
+	#ifdef __arm64e__
+	.cfi_b_key_frame
+	pacibsp
+	#else
+	paciasp
+	#endif
+	.cfi_negate_ra_state
 	stp fp, lr, [sp, #-16]!
 	.cfi_adjust_cfa_offset 16
 	mov fp, sp
@@ -43,7 +50,12 @@ CSYM(static_call_impl):
 		ldp x12, x13, [x10, #-16]!
 		stp x12, x13, [sp, #-16]!
 		b 0b
-	1: blr x9
+	1:
+	#ifdef __arm64e__
+	blraaz x9
+	#else
+	blr x9
+	#endif
 	ldp x3, x4, [fp, -16]
 	# void
 	cmp x3, 1
@@ -81,7 +93,13 @@ CSYM(static_call_impl):
 	mov sp, fp
 	ldp fp, lr, [sp], #16
 	.cfi_def_cfa sp, 0
+	#ifdef __arm64e__
+	retab
+	#else
+	autiasp
+	.cfi_negate_ra_state
 	ret
+	#endif
 	.cfi_endproc
 
 .global CSYM(wrapper_call_impl)
@@ -94,6 +112,13 @@ CSYM(static_call_impl):
 #endif
 CSYM(wrapper_call_impl):
 	.cfi_startproc
+	#ifdef __arm64e__
+	.cfi_b_key_frame
+	pacibsp
+	#else
+	paciasp
+	#endif
+	.cfi_negate_ra_state
 	stp fp, lr, [sp, #-16]!
 	.cfi_adjust_cfa_offset 16
 	mov fp, sp
@@ -127,5 +152,30 @@ CSYM(wrapper_call_impl):
 	mov sp, fp
 	ldp fp, lr, [sp], #16
 	.cfi_def_cfa sp, 0
+	#ifdef __arm64e__
+	retab
+	#else
+	autiasp
+	.cfi_negate_ra_state
 	ret
+	#endif
 	.cfi_endproc
+
+#if defined __ELF__ && defined __linux__
+#define GNU_PROPERTY_AARCH64_BTI (1 << 0)
+#define GNU_PROPERTY_AARCH64_POINTER_AUTH (1 << 1)
+	.section .note.GNU-stack,"",%progbits
+
+	.pushsection .note.gnu.property, "a";
+	.balign 8;
+	.long 4;
+	.long 0x10;
+	.long 0x5;
+	.asciz "GNU";
+	.long 0xc0000000; /* GNU_PROPERTY_AARCH64_FEATURE_1_AND */
+	.long 4;
+	.long GNU_PROPERTY_AARCH64_BTI | GNU_PROPERTY_AARCH64_POINTER_AUTH;
+	.long 0;
+	.popsection;
+#endif
+
