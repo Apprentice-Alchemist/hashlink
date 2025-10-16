@@ -20,10 +20,10 @@ CSYM(static_call_impl):
 	#ifdef __arm64e__
 	.cfi_b_key_frame
 	pacibsp
-	#else
+	#elif !defined(__APPLE__)
 	paciasp
-	#endif
 	.cfi_negate_ra_state
+	#endif
 	stp fp, lr, [sp, #-16]!
 	.cfi_adjust_cfa_offset 16
 	mov fp, sp
@@ -96,8 +96,11 @@ CSYM(static_call_impl):
 	#ifdef __arm64e__
 	retab
 	#else
+	#if !defined(__APPLE__)
 	autiasp
 	.cfi_negate_ra_state
+	ret
+	#endif
 	ret
 	#endif
 	.cfi_endproc
@@ -155,8 +158,10 @@ CSYM(wrapper_call_impl):
 	#ifdef __arm64e__
 	retab
 	#else
+	#if !defined(__APPLE__)
 	autiasp
 	.cfi_negate_ra_state
+	#endif
 	ret
 	#endif
 	.cfi_endproc
@@ -178,4 +183,3 @@ CSYM(wrapper_call_impl):
 	.long 0;
 	.popsection;
 #endif
-

@@ -1,13 +1,18 @@
 #include <assert.h>
 #include <hl.h>
 
-extern hl_type hlt_ui8;
+hl_type hlt_ui8 = {.kind = HUI8};
+hl_type t_i32 = {.kind = HI32};
+hl_type t_void = {.kind = HVOID};
 
 void *hl_static_call(void **fun, hl_type *ty, void **args, vdynamic *out);
 void *hl_get_wrapper(hl_type *t);
 
 void foo(int a, int b, int c, int d, int e, int f, int g, int h, char ac,
          char bc) {
+  printf("a: %i, b: %i, c: %i, d: %i, e: %i, f: %i, g: %i, h: %i, ac: %i, bc: "
+         "%i\n",
+         a, b, c, d, e, f, g, h, ac, bc);
   assert(a == 1);
   assert(b == 2);
   assert(c == 3);
@@ -20,39 +25,37 @@ void foo(int a, int b, int c, int d, int e, int f, int g, int h, char ac,
   assert(bc == 54);
 }
 
-hl_type foo_type = (hl_type){
-    .kind = HFUN,
-    .fun = &(hl_type_fun){.args =
-                              (hl_type* []){
-                                  &hlt_i32,
-                                  &hlt_i32,
-                                  &hlt_i32,
-                                  &hlt_i32,
-                                  &hlt_i32,
-                                  &hlt_i32,
-                                  &hlt_i32,
-                                  &hlt_i32,
-                                  &hlt_ui8,
-                                  &hlt_ui8,
-                              },
-                          .nargs = 10,
-                          .ret = &hlt_void},
-};
-
 void bar() {}
 
-hl_type bar_type = {.kind = HFUN,
-                    .fun = &(hl_type_fun){
-                        .args = (hl_type *[]){},
-                        .nargs = 0,
-                        .ret = &hlt_void,
-                    }};
-
+#ifdef HL_WIN
+int wmain() {
+#else
 int main() {
-  // void *args[0];
-  // vdynamic out;
-  // void *f = bar;
-  // hl_static_call((void**)&f, &bar_type, args, &out);
+#endif
+  hl_type foo_type = (hl_type){
+      .kind = HFUN,
+      .fun = &(hl_type_fun){.args =
+                                (hl_type *[]){
+                                    &t_i32,
+                                    &t_i32,
+                                    &t_i32,
+                                    &t_i32,
+                                    &t_i32,
+                                    &t_i32,
+                                    &t_i32,
+                                    &t_i32,
+                                    &hlt_ui8,
+                                    &hlt_ui8,
+                                },
+                            .nargs = 10,
+                            .ret = &t_void},
+  };
+  hl_type bar_type = {.kind = HFUN,
+                      .fun = &(hl_type_fun){
+                          .args = (hl_type *[]){},
+                          .nargs = 0,
+                          .ret = &t_void,
+                      }};
   vdynamic out = {0};
   int a = 1;
   int b = 2;

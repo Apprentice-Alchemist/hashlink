@@ -98,16 +98,25 @@ CSYM(wrapper_call_impl):
 	je      2f
 	cmpl    $0x6, %ecx
 	je      3f
+	cmpl $0x4, %ecx
+	je 4f
+	cmpl $0x17, %ecx
+	je 4f
 	call   CSYM(wrapper_inner)@plt
-	jmp     4f
+	jmp     5f
 	2:
 	call   CSYM(wrapper_inner)@plt
 	flds (%eax)
-	jmp 4f
+	jmp 5f
 	3: 
 	call   CSYM(wrapper_inner)@plt
 	fldl (%eax)
+	jmp 5f
 	4:
+	call CSYM(wrapper_inner)@plt
+	mov 0x4(%eax), %edx
+	mov (%eax), %eax
+	5:
 	mov    %ebp,%esp
 	pop    %ebp
 	.cfi_def_cfa esp, 4

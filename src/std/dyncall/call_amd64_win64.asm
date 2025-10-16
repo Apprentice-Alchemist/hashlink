@@ -97,12 +97,12 @@ wrapper_call_impl PROC FRAME
 	mov r10, [r10 + 8]
 	mov r10d, [r10]
 	cmp r10d, 5
-	jz ret_float
+	jz @F
 	cmp r10d, 6
-	jz ret_float
+	jz @F
 	call wrapper_inner
 	jmp final
-	ret_float: call wrapper_inner
+	@@: call wrapper_inner
 	movsd xmm0, qword ptr [rax]
 	final:
 	mov rsp, rbp

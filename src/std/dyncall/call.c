@@ -1,4 +1,4 @@
-#ifdef _MSC_VER
+#ifdef _WIN32
 #define alloca _alloca
 #else
 #include <alloca.h>
@@ -8,8 +8,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#ifdef _MSC_VER
-#if defined(_M_X64)
+#ifdef HL_WIN
+#if defined(_M_X64) || defined(__x86_64__)
+#define WINCALL64
 enum { CPU_CALL_REGS = 4 };
 enum { FPU_CALL_REGS = 4 };
 #elif defined(_M_ARM64)
@@ -35,6 +36,9 @@ enum { CPU_CALL_REGS = 6 };
 enum { FPU_CALL_REGS = 8 };
 #elif defined(__aarch64__)
 enum { CPU_CALL_REGS = 8 };
+enum { FPU_CALL_REGS = 8 };
+#elif defined(__arm__)
+enum { CPU_CALL_REGS = 4 };
 enum { FPU_CALL_REGS = 8 };
 #elif defined(__i386__)
 enum { CPU_CALL_REGS = 0 };
@@ -80,7 +84,7 @@ struct arg_pos {
 };
 
 typedef struct {
-#if defined(_MSC_VER) && defined(_M_X64)
+#if defined(WINCALL64)
   int nreg;
 #else
   int ncpu;
@@ -109,9 +113,10 @@ static size_t compute_stack_offset(call_frame_layout *layout, size_t arg_size,
 static enum arg_kind select_reg(call_frame_layout *layout, hl_type *t,
                                 union arg_loc *loc) {
   switch (t->kind) {
+#if !defined(__arm__) || !defined(__ARM_PCS_VFP)
   case HF32:
   case HF64:
-#if defined(_MSC_VER) && defined(_M_X64)
+#if defined(WINCALL64)
     if (layout->nreg < FPU_CALL_REGS) {
       loc->rfpu = layout->nreg++;
       return arg_kind_rfpu;
@@ -127,8 +132,9 @@ static enum arg_kind select_reg(call_frame_layout *layout, hl_type *t,
     }
 #endif
     break;
+#endif
   default:
-#if defined(_MSC_VER) && defined(_M_X64)
+#if defined(WINCALL64)
     if (layout->nreg < CPU_CALL_REGS) {
       loc->rcpu = layout->nreg++;
       return arg_kind_rcpu;
@@ -190,10 +196,12 @@ static void *get_arg(struct regs *regs, char *stack, struct arg_pos pos) {
     return &regs->fpu[pos.loc.rfpu];
   case arg_kind_stack:
     return &stack[pos.loc.stack_offset];
+  default:
+    abort();
   }
 }
 
-void *hl_static_call(void **fun, hl_type *ty, void **args, vdynamic *out) {
+HL_PRIM void *hl_static_call(void **fun, hl_type *ty, void **args, vdynamic *out) {
   call_frame_layout layout = {0};
   {
     for (int i = 0; i < ty->fun->nargs; i++) {
@@ -223,9 +231,10 @@ void *hl_static_call(void **fun, hl_type *ty, void **args, vdynamic *out) {
     }
   }
   finish_layout(&layout2);
-
+  #ifndef WINCALL64
   assert(layout.ncpu == layout2.ncpu);
   assert(layout.nfpu == layout2.nfpu);
+  #endif
   assert(layout.stack_size == layout2.stack_size);
 
   memcpy(data + layout.stack_size, &regs, sizeof(regs));
@@ -255,8 +264,10 @@ void *hl_static_call(void **fun, hl_type *ty, void **args, vdynamic *out) {
     break;
   }
 
+#ifndef WINCALL64
   assert(layout.ncpu == layout2.ncpu);
   assert(layout.nfpu == layout2.nfpu);
+#endif
   assert(layout.stack_size == layout2.stack_size);
   assert(fun != NULL);
   assert(*fun != NULL);
@@ -284,13 +295,19 @@ void *wrapper_inner(vclosure_wrapper *c, struct regs *regs, char *stack,
   case HUI8:
   case HUI16:
   case HI32:
+#ifdef HL_64
   case HI64:
   case HGUID:
+#endif
     // Todo HI64 32-bit
     hl_wrapper_call(c, args, ret);
     return ret->v.ptr;
   case HF32:
   case HF64:
+#ifndef HL_64
+  case HI64:
+  case HGUID:
+#endif
     hl_wrapper_call(c, args, ret);
     return &ret->v;
   default:

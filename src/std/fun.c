@@ -340,6 +340,7 @@ HL_PRIM void *hl_wrapper_call( void *_c, void **args, vdynamic *ret ) {
 	pret = hl_static_call(hlc_call_flags & 1 ? &w->fun : w->fun,w->hasValue ? w->t->fun->parent : w->t,vargs,ret);
 	aret = hl_is_ptr(w->t->fun->ret) ? &pret : pret;
 	if( aret == NULL ) aret = &pret;
+	ret->t = tfun->ret;
 	switch( tfun->ret->kind ) {
 	case HVOID:
 		return NULL;
