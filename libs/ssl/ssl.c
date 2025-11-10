@@ -240,6 +240,50 @@ DEFINE_PRIM(_I32, ssl_send, TSSL _BYTES _I32 _I32);
 DEFINE_PRIM(_I32, ssl_recv_char, TSSL);
 DEFINE_PRIM(_I32, ssl_recv, TSSL _BYTES _I32 _I32);
 
+#ifdef HL_WIN
+static int verify_callback(void* param, mbedtls_x509_crt *crt, int depth, uint32_t *flags) {
+	if (*flags == 0 || *flags & MBEDTLS_X509_BADCERT_CN_MISMATCH) {
+		return 0;
+	}
+
+	HCERTSTORE store = CertOpenStore(CERT_STORE_PROV_MEMORY, 0, 0, CERT_STORE_DEFER_CLOSE_UNTIL_LAST_FREE_FLAG, NULL);
+	if(store == NULL) {
+		return MBEDTLS_ERR_X509_FATAL_ERROR;
+	}
+	PCCERT_CONTEXT primary_context = {0};
+	if(!CertAddEncodedCertificateToStore(store, X509_ASN_ENCODING, crt->raw.p, crt->raw.len, CERT_STORE_ADD_REPLACE_EXISTING, &primary_context)) {
+		CertCloseStore(store, 0);
+		return MBEDTLS_ERR_X509_FATAL_ERROR;
+	}
+	PCCERT_CHAIN_CONTEXT chain_context = {0};
+	CERT_CHAIN_PARA parameters = {0};
+	if(!CertGetCertificateChain(NULL, primary_context, NULL, store, &parameters, 0, NULL, &chain_context)) {
+		CertFreeCertificateContext(primary_context);
+		CertCloseStore(store, 0);
+		return MBEDTLS_ERR_X509_FATAL_ERROR;
+	}
+	CERT_CHAIN_POLICY_PARA policy_parameters = {0};
+	CERT_CHAIN_POLICY_STATUS policy_status = {0};
+	if(!CertVerifyCertificateChainPolicy(CERT_CHAIN_POLICY_SSL, chain_context, &policy_parameters, &policy_status)) {
+		CertFreeCertificateChain(chain_context);
+		CertFreeCertificateContext(primary_context);
+		CertCloseStore(store, 0);
+		return MBEDTLS_ERR_X509_FATAL_ERROR;
+	}
+	if(policy_status.dwError == 0) {
+		*flags = 0;
+	} else {
+		// if we ever want to read the verification result,
+		// we need to properly map dwError to flags
+		*flags |= MBEDTLS_X509_BADCERT_OTHER;
+	}
+	CertFreeCertificateChain(chain_context);
+	CertFreeCertificateContext(primary_context);
+	CertCloseStore(store, 0);
+	return 0;
+}
+#endif
+
 HL_PRIM mbedtls_ssl_config *HL_NAME(conf_new)(bool server) {
 	int ret;
 	mbedtls_ssl_config *conf;
@@ -251,6 +295,9 @@ HL_PRIM mbedtls_ssl_config *HL_NAME(conf_new)(bool server) {
 		ssl_error(ret);
 		return NULL;
 	}
+#ifdef HL_WIN
+	mbedtls_ssl_conf_verify(conf, verify_callback, NULL);
+#endif
 #if MBEDTLS_VERSION_MAJOR < 4
 	mbedtls_ssl_conf_rng(conf, mbedtls_ctr_drbg_random, &ctr_drbg);
 #endif
@@ -895,8 +942,7 @@ DEFINE_PRIM(_BYTES, dgst_make, _BYTES _I32 _BYTES _REF(_I32));
 DEFINE_PRIM(_BYTES, dgst_sign, _BYTES _I32 TPKEY _BYTES _REF(_I32));
 DEFINE_PRIM(_BOOL, dgst_verify, _BYTES _I32 _BYTES _I32 TPKEY _BYTES);
 
-
-#if _MSC_VER
+#ifdef MBEDTLS_THREADING_ALT
 
 static void threading_mutex_init_alt(mbedtls_threading_mutex_t *mutex) {
 	if (mutex == NULL)
@@ -934,7 +980,7 @@ HL_PRIM void HL_NAME(ssl_init)() {
 	if (ssl_init_done)
 		return;
 	ssl_init_done = true;
-#if _MSC_VER
+#ifdef MBEDTLS_THREADING_ALT
 	mbedtls_threading_set_alt(threading_mutex_init_alt, threading_mutex_free_alt,
 		threading_mutex_lock_alt, threading_mutex_unlock_alt);
 #endif

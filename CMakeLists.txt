@@ -388,6 +388,7 @@ if(BUILD_TESTING)
             ${HAXE_FLAGS}
             -hl ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/uvsample/uvsample.c
             -cp ${CMAKE_SOURCE_DIR}/other/uvsample -main UVSample
+            -D hl-ver=${HL_VERSION}
     )
     add_executable(uvsample
         ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/uvsample/uvsample.c
