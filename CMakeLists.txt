@@ -269,6 +269,19 @@ if(BUILD_TESTING)
     )
 
     #####################
+    # https.hl
+
+    add_custom_command(OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/https.hl
+        COMMAND ${HAXE_COMPILER}
+            ${HAXE_FLAGS}
+            -hl ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/https.hl
+            -cp ${CMAKE_SOURCE_DIR}/other/tests -main Https
+    )
+    add_custom_target(https.hl ALL
+        DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/https.hl
+    )
+
+    #####################
     # threads.hl
 
     add_custom_command(OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/threads.hl
@@ -315,6 +328,31 @@ if(BUILD_TESTING)
     )
     target_link_libraries(hello
         libhl
+        ${HLC_LIBRARIES}
+    )
+
+    #####################
+    # https.c
+
+    add_custom_command(OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/https/https.c
+        COMMAND ${HAXE_COMPILER}
+            ${HAXE_FLAGS}
+            -hl ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/https/https.c
+            -cp ${CMAKE_SOURCE_DIR}/other/tests -main Https
+    )
+    add_executable(https
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/https/https.c
+    )
+    set_target_properties(https
+        PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/https
+    )
+    target_include_directories(https
+        PRIVATE ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/https
+    )
+    target_link_libraries(https
+        libhl
+        ssl.hdll
         ${HLC_LIBRARIES}
     )
 
@@ -396,6 +434,9 @@ if(BUILD_TESTING)
         add_test(NAME hello.hl
             COMMAND hl ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/hello.hl
         )
+        add_test(NAME https.hl
+            COMMAND hl ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/https.hl
+        )
         add_test(NAME threads.hl
             COMMAND hl ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/threads.hl
         )
@@ -406,6 +447,9 @@ if(BUILD_TESTING)
 
     add_test(NAME hello
         COMMAND hello
+    )
+    add_test(NAME https
+        COMMAND https
     )
     add_test(NAME threads
         COMMAND threads
