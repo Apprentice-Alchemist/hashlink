@@ -283,7 +283,7 @@ jobs:
                 export PATH=$(pwd)/build/bin:$PATH
                 ;;
             esac
-            cd build && ctest --verbose --build-config ${{ matrix.cmake_configuration }}
+            cd build && ctest --verbose -C ${{ matrix.cmake_configuration }} --output-on-failure
             ;;
           vs2019)
             ${{ env.WINDOWS_BUILD_FOLDER }}/hl.exe --version
