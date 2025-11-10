@@ -767,7 +767,7 @@ DEFINE_PRIM(_BYTES, dgst_sign, _BYTES _I32 TPKEY _BYTES _REF(_I32));
 DEFINE_PRIM(_BOOL, dgst_verify, _BYTES _I32 _BYTES _I32 TPKEY _BYTES);
 
 
-#if _MSC_VER
+#ifdef _WIN32
 
 static void threading_mutex_init_alt(mbedtls_threading_mutex_t *mutex) {
 	if (mutex == NULL)
@@ -805,7 +805,7 @@ HL_PRIM void HL_NAME(ssl_init)() {
 	if (ssl_init_done)
 		return;
 	ssl_init_done = true;
-#if _MSC_VER
+#ifdef _WIN32
 	mbedtls_threading_set_alt(threading_mutex_init_alt, threading_mutex_free_alt,
 		threading_mutex_lock_alt, threading_mutex_unlock_alt);
 #endif
