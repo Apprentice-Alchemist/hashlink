@@ -120,18 +120,51 @@ HL_PRIM int hl_file_write( hl_fdesc *f, vbyte *buf, int pos, int len ) {
 	if( !f ) return -1;
 	hl_blocking(true);
 #	ifdef HL_WIN_DESKTOP
-	if( f->is_std ) {
-		// except utf8, handle the case where it's not \0 terminated
-		uchar *out = (uchar*)malloc((len+1)*2);
-		vbyte prev = buf[pos+len-1];
-		if( buf[pos+len] ) buf[pos+len-1] = 0;
-		int olen = hl_from_utf8(out,len,(const char*)(buf+pos));
-		buf[pos+len-1] = prev;
-		_setmode(fileno(f->f),_O_U8TEXT);
-		ret = _write(fileno(f->f),out,olen<<1);
-		_setmode(fileno(f->f),_O_TEXT);
-		if( ret > 0 ) ret = len;
-		free(out);
+	HANDLE h = (HANDLE)_get_osfhandle(_fileno(f->f));
+	DWORD mode;
+	if( GetConsoleMode(h, &mode)) {
+		uchar out[4096];
+		DWORD olen = MultiByteToWideChar(CP_UTF8, 0, &buf[pos], len, out, sizeof(out) / sizeof(uchar));
+		DWORD written;
+		if (!WriteConsoleW(h, out, olen, &written, NULL)) {
+			return -1;
+		}
+		if (written == olen)
+		{
+			return len;
+		}
+		else
+		{
+			uchar first_code_unit_remaining = out[written];
+			if (first_code_unit_remaining > 0xDCEE && first_code_unit_remaining <= 0xDFF)
+			{
+				DWORD tmp;
+				WriteConsoleW(h, &out[written], 1, &tmp, NULL);
+				written += 1;
+			}
+			int count = 0;
+			for (int i = 0; i < written; i++)
+			{
+				wchar_t ch = buf[i];
+				if (ch >= 0 && ch <= 0x7F)
+				{
+					count += 1;
+				}
+				else if (ch >= 0x0080 && ch <= 0x07FF)
+				{
+					count += 2;
+				}
+				else if (ch >= 0xDCEE && ch <= 0xDFF)
+				{
+					count += 1;
+				}
+				else
+				{
+					count += 3;
+				}
+			}
+			ret = count;
+		}
 	} else
 #	endif
 	ret = (int)fwrite(buf+pos,1,len,f->f);

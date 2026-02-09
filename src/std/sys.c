@@ -146,15 +146,31 @@ HL_PRIM void hl_sys_print( vbyte *msg ) {
 #	if defined(HL_XBO) || defined(HL_XBS)
 	OutputDebugStringW((LPCWSTR)msg);
 #	else
-#	ifdef HL_WIN_DESKTOP
-	if( print_flags & PR_WIN_UTF8 ) _setmode(_fileno(stdout),_O_U8TEXT);
-#	endif
-	uprintf(USTR("%s"),(uchar*)msg);
+	#ifdef HL_WIN_DESKTOP
+	HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
+	DWORD mode;
+	if (GetConsoleMode(h, &mode)) {
+		fflush(stdout);
+		uchar *umsg = (uchar*)msg;
+		DWORD len = ustrlen(umsg);
+		int total_written = 0;
+		while(total_written < len) {
+			DWORD written = 0;
+			if(!WriteConsoleW(h, umsg, len, &written, NULL)) {
+				break;
+			}
+			total_written += written;
+			umsg += written;
+			len -= written;
+		}
+	} else {
+		char *m = hl_to_utf8((uchar*)msg);
+		printf("%s", m);
+	}
+	#else
+	uprintf(USTR("%s"), (uchar *)msg);
+	#endif
 	if( print_flags & PR_AUTO_FLUSH ) fflush(stdout);
-#	ifdef HL_WIN_DESKTOP
-	if( print_flags & PR_WIN_UTF8 ) _setmode(_fileno(stdout),_O_TEXT);
-#	endif
-
 #	endif
 	hl_blocking(false);
 }
