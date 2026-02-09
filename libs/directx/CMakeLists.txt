@@ -29,7 +29,7 @@ endif()
 
 option(WITH_DX12 "Build dx12.hdll." ON)
 
-if(WITH_DX12)
+if(WITH_DX12 AND NOT MINGW)
     add_library(dx12.hdll
         dx12.cpp
     )

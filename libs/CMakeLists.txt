@@ -15,6 +15,7 @@ function(set_as_hdll target)
     )
 endfunction()
 
+include(FetchContent)
 if (DOWNLOAD_DEPENDENCIES)
     set(CMAKE_COMMON_DEP_ARGS
         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
@@ -28,7 +29,6 @@ if (DOWNLOAD_DEPENDENCIES)
         -DCMAKE_INSTALL_MESSAGE=LAZY
     )
     include(ExternalProject)
-    include(FetchContent)
 endif()
 
 if(WIN32)

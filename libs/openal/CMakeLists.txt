@@ -12,15 +12,23 @@ if(WIN32)
         set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
     endif()
 
-    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        find_library(OPENAL_LIBRARY OpenAL32 PATHS ${INCLUDES_BASE_DIR}/openal/libs/Win64)
-        install(FILES ${INCLUDES_BASE_DIR}/openal/bin/Win64/soft_oal.dll TYPE BIN RENAME OpenAL32.dll)
+    if (EXISTS ${INCLUDES_BASE_DIR}/openal/)
+        set(openal_SOURCE_DIR ${INCLUDES_BASE_DIR}/openal)
     else()
-        find_library(OPENAL_LIBRARY OpenAL32 PATHS ${INCLUDES_BASE_DIR}/openal/libs/Win32)
-        install(FILES ${INCLUDES_BASE_DIR}/openal/bin/Win32/soft_oal.dll TYPE BIN RENAME OpenAL32.dll)
+        FetchContent_Declare(openal
+            URL https://github.com/kcat/openal-soft/releases/download/1.25.1/openal-soft-1.25.1-bin.zip
+            URL_HASH SHA256=0915af01928b17e46f7c59ffc44a7413486bbef8424a3465109f489a80cb68a2
+        )
+        FetchContent_MakeAvailable(openal)
     endif()
-
-    set(OPENAL_INCLUDE_DIR ${INCLUDES_BASE_DIR}/openal/include)
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        find_library(OPENAL_LIBRARY OpenAL32 PATHS ${openal_SOURCE_DIR}/libs/Win64)
+        install(FILES ${openal_SOURCE_DIR}/bin/Win64/soft_oal.dll TYPE BIN RENAME OpenAL32.dll)
+    else()
+        find_library(OPENAL_LIBRARY OpenAL32 PATHS ${openal_SOURCE_DIR}/libs/Win32)
+        install(FILES ${openal_SOURCE_DIR}/bin/Win32/soft_oal.dll TYPE BIN RENAME OpenAL32.dll)
+    endif()
+    set(OPENAL_INCLUDE_DIR ${openal_SOURCE_DIR}/include)
     add_library(OpenAL::OpenAL SHARED IMPORTED)
     set_target_properties(OpenAL::OpenAL PROPERTIES
         IMPORTED_IMPLIB ${OPENAL_LIBRARY}
