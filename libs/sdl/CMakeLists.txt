@@ -24,7 +24,25 @@ if ((NOT WIN32) AND DOWNLOAD_DEPENDENCIES)
     FetchContent_MakeAvailable(SDL2)
 else()
     if(WIN32)
-        set(SDL2_DIR ${INCLUDES_BASE_DIR}/sdl/cmake)
+        if (EXISTS ${INCLUDES_BASE_DIR}/sdl/)
+            set(sdl2_SOURCE_DIR ${INCLUDES_BASE_DIR}/sdl)
+        else()
+            if (MINGW)
+                FetchContent_Declare(
+                    sdl2
+                    URL https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-devel-2.32.10-mingw.zip
+                    URL_HASH SHA256=f15cff5fca62ec9381a016ef1d42a95c638cd72d2f226ba5781c76fe43dbd1ac
+                )
+            else()
+                FetchContent_Declare(
+                    sdl2
+                    URL https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-devel-2.32.10-VC.zip
+                    URL_HASH SHA256=af347939395a58b365846aaea27391e69f9ec9d4dd650d6ac40802159b418a6e
+                )
+            endif()
+            FetchContent_MakeAvailable(sdl2)
+        endif()
+        set(SDL2_DIR ${sdl2_SOURCE_DIR}/cmake)
         if(NOT MINGW)
             target_include_directories(sdl.hdll
                 PRIVATE
@@ -34,6 +52,9 @@ else()
     endif()
 
     find_package(SDL2 REQUIRED)
+    if(WIN32)
+        install(IMPORTED_RUNTIME_ARTIFACTS SDL2::SDL2)
+    endif()
 endif()
 
 set_as_hdll(sdl)
