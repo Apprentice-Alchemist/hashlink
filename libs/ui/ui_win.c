@@ -228,8 +228,10 @@ static void sentinel_loop( vsentinel *s ) {
 				// simulate a call
 #				ifdef HL_64
 				int_val* rsp = (int_val*)regs.Rsp;
-				*--rsp = (int_val)regs.Rip;
-				*--rsp = (int_val)rsp;
+				rsp--;
+				*rsp = (int_val)regs.Rip;
+				rsp--;
+				*rsp = (int_val)rsp;
 				regs.Rsp = (int_val)rsp;
 				regs.Rip = (int_val)s->callback;
 #				else
@@ -360,7 +362,7 @@ HL_PRIM byte* HL_NAME(ui_get_clipboard_text)() {
 		CloseClipboard();
 		return NULL;
 	}
-	vbyte* b = hl_copy_bytes(chr, (int) strlen(chr) + 1);
+	vbyte* b = hl_copy_bytes((vbyte*)chr, (int) strlen(chr) + 1);
 	GlobalUnlock(d);
 	CloseClipboard();
 	return b;

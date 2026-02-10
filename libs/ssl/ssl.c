@@ -362,9 +362,9 @@ HL_PRIM hl_ssl_cert *HL_NAME(cert_load_defaults)() {
 	HCERTSTORE store;
 	PCCERT_CONTEXT cert;
 	
-	if (store = CertOpenSystemStore(0, (LPCWSTR)L"Root")) {
+	if ((store = CertOpenSystemStore(0, (LPCWSTR)L"Root"))) {
 		cert = NULL;
-		while (cert = CertEnumCertificatesInStore(store, cert)) {
+		while ((cert = CertEnumCertificatesInStore(store, cert))) {
 			if (chain == NULL) {
 				chain = (mbedtls_x509_crt*)malloc(sizeof(mbedtls_x509_crt));
 				mbedtls_x509_crt_init(chain);

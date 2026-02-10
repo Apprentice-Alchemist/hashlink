@@ -117,8 +117,13 @@
 #	define HL_CLANG
 #endif
 
-#if defined(_MSC_VER) && !defined(HL_LLVM)
+#if defined(_MSC_VER)
 #	define HL_VCC
+#endif
+#if defined(HL_VCC)
+#if defined(HL_CLANG)
+#	pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#else
 #	pragma warning(disable:4996) // remove deprecated C API usage warnings
 #	pragma warning(disable:4055) // void* - to - function cast
 #	pragma warning(disable:4152) // void* - to - function cast
@@ -134,6 +139,7 @@
 #	if (_MSC_VER >= 1920)
 #		pragma warning(disable:5045) // spectre
 #	endif
+#endif
 #endif
 
 #if defined(HL_VCC) || defined(HL_MINGW) || defined(HL_CYGWIN)
@@ -163,9 +169,7 @@
 #endif
 
 #include <stddef.h>
-#ifndef HL_VCC
-#	include <stdint.h>
-#endif
+#include <stdint.h>
 
 #if defined(HL_VCC) || defined(HL_MINGW)
 #	define EXPORT __declspec( dllexport )
@@ -230,7 +234,7 @@ typedef unsigned long long uint64;
 
 // -------------- UNICODE -----------------------------------
 
-#if defined(HL_WIN) && !defined(HL_LLVM)
+#if defined(HL_WIN)
 #	include <wchar.h>
 typedef wchar_t	uchar;
 #	define USTR(str)	L##str
@@ -323,7 +327,11 @@ C_FUNCTION_END
 
 #ifdef HL_VCC
 #	define HL_NO_RETURN(f) __declspec(noreturn) f
+#ifdef HL_CLANG
+#	define HL_UNREACHABLE __builtin_unreachable()
+#else
 #	define HL_UNREACHABLE
+#endif
 #else
 #	define HL_NO_RETURN(f) f __attribute__((noreturn))
 #	define HL_UNREACHABLE __builtin_unreachable()

@@ -362,7 +362,7 @@ HL_PRIM bool HL_NAME(event_loop)( event_data *event ) {
 			event->window = e.drop.windowID;
 			break;
 		case SDL_DROPFILE: case SDL_DROPTEXT: {
-			vbyte* bytes = hl_copy_bytes(e.drop.file, (int)strlen(e.drop.file) + 1);
+			vbyte* bytes = hl_copy_bytes((vbyte*)e.drop.file, (int)strlen(e.drop.file) + 1);
 			SDL_free(e.drop.file);
 			event->type = e.type == SDL_DROPFILE ? DropFile : DropText;
 			event->dropFile = bytes;
@@ -899,11 +899,11 @@ HL_PRIM bool HL_NAME(set_clipboard_text)(char* text) {
 	return SDL_SetClipboardText(text) == 0;
 }
 
-HL_PRIM char* HL_NAME(get_clipboard_text)() {
+HL_PRIM vbyte* HL_NAME(get_clipboard_text)() {
 	char* chr = SDL_GetClipboardText();
 	if (chr == NULL)
 		return NULL;
-	vbyte* bytes = hl_copy_bytes(chr, (int) strlen(chr) + 1);
+	vbyte* bytes = hl_copy_bytes((vbyte*)chr, (int) strlen(chr) + 1);
 	SDL_free(chr);
 	return bytes;
 }
@@ -931,7 +931,7 @@ HL_PRIM varray* HL_NAME(get_displays)() {
 		hl_dyn_seti(obj, hl_hash_utf8("top"), &hlt_i32, rect.y);
 		hl_dyn_seti(obj, hl_hash_utf8("handle"), &hlt_i32, i);
 		const char *name = SDL_GetDisplayName(i);
-		hl_dyn_setp(obj, hl_hash_utf8("name"), &hlt_bytes, hl_copy_bytes(name, (int) strlen(name)+1));
+		hl_dyn_setp(obj, hl_hash_utf8("name"), &hlt_bytes, hl_copy_bytes((vbyte*)name, (int) strlen(name)+1));
 		hl_aptr(arr, vdynamic*)[i] = obj;
 	}
 	return arr;

@@ -685,7 +685,7 @@ DEFINE_PRIM(_VOID, alc_get_integer64v_soft,  TDEVICE _I32 _I32 _BYTES);
 
 HL_PRIM bool HL_NAME(alc_reopen_device_soft)(ALCdevice *device, vbyte *deviceName, vbyte *attribs) {
 	CHECK_EXT(alcReopenDeviceSOFT);
-	return alcReopenDeviceSOFT(device, deviceName, (ALCint*)attribs);
+	return alcReopenDeviceSOFT(device, (char*)deviceName, (ALCint*)attribs);
 }
 
 DEFINE_PRIM(_BOOL,  alc_reopen_device_soft, TDEVICE _BYTES _BYTES);
